@@ -1,21 +1,32 @@
 'use client';
 
-import { useState } from 'react';
-import Card from '@/components/Card';
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import Button from '@/components/Button';
 import Modal from '@/components/Modal';
 import Toast from '@/components/Toast';
 import { ArrowLeftIcon, PlusIcon } from '@/components/Icons';
-import {
-  students,
-  faculty,
-  departments,
-  getDepartmentById,
-  Student,
-  Faculty,
-} from '@/lib/mockData';
 
 type TabType = 'students' | 'faculty';
+
+interface Student {
+  id: string;
+  name: string;
+  email: string;
+  departmentId: string;
+  year: string;
+  course: string;
+  division: string;
+  batch: string;
+}
+
+interface Faculty {
+  id: string;
+  name: string;
+  email: string;
+  departmentId: string;
+  facultyCode?: string | null;
+}
 
 export default function UserManagementPage() {
   const [activeTab, setActiveTab] = useState<TabType>('students');
@@ -23,14 +34,45 @@ export default function UserManagementPage() {
   const [showFacultyModal, setShowFacultyModal] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState<'success' | 'error'>('success');
+  const [isLoading, setIsLoading] = useState(true);
 
-  const [localStudents, setLocalStudents] = useState(students);
-  const [localFaculty, setLocalFaculty] = useState(faculty);
+  const [localStudents, setLocalStudents] = useState<Student[]>([]);
+  const [localFaculty, setLocalFaculty] = useState<Faculty[]>([]);
+
+  // Fetch students and faculty from DB on mount
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        const [studentsRes, facultyRes] = await Promise.all([
+          fetch('/api/admin/students'),
+          fetch('/api/admin/faculty'),
+        ]);
+        
+        if (studentsRes.ok) {
+          const studentsData = await studentsRes.json();
+          setLocalStudents(studentsData);
+        }
+        
+        if (facultyRes.ok) {
+          const facultyData = await facultyRes.json();
+          setLocalFaculty(facultyData);
+        }
+      } catch (error) {
+        console.error('Error fetching data:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    
+    fetchData();
+  }, []);
 
   const [newStudent, setNewStudent] = useState({
     name: '',
     email: '',
-    departmentId: '',
+    year: '1',
+    course: 'IT',
     division: 'A',
     batch: 'A1',
   });
@@ -38,152 +80,274 @@ export default function UserManagementPage() {
   const [newFaculty, setNewFaculty] = useState({
     name: '',
     email: '',
-    departmentId: '',
+    facultyCode: '',
   });
 
-  const handleAddStudent = () => {
-    if (!newStudent.name || !newStudent.email || !newStudent.departmentId) return;
-    
-    const student: Student = {
-      id: `stu${localStudents.length + 1}`,
-      ...newStudent,
-    };
-    setLocalStudents([...localStudents, student]);
-    setShowStudentModal(false);
-    setNewStudent({ name: '', email: '', departmentId: '', division: 'A', batch: 'A1' });
-    setToastMessage('Student added successfully!');
-    setShowToast(true);
+  const [studentEmailError, setStudentEmailError] = useState('');
+  const [facultyEmailError, setFacultyEmailError] = useState('');
+
+  // Validate somaiya.edu email
+  const isValidSomaiyaEmail = (email: string) => {
+    return email.toLowerCase().endsWith('@somaiya.edu');
   };
 
-  const handleAddFaculty = () => {
-    if (!newFaculty.name || !newFaculty.email || !newFaculty.departmentId) return;
+  const handleAddStudent = async () => {
+    if (!newStudent.name || !newStudent.email || !newStudent.year) return;
     
-    const fac: Faculty = {
-      id: `fac${localFaculty.length + 1}`,
-      ...newFaculty,
-    };
-    setLocalFaculty([...localFaculty, fac]);
-    setShowFacultyModal(false);
-    setNewFaculty({ name: '', email: '', departmentId: '' });
-    setToastMessage('Faculty added successfully!');
-    setShowToast(true);
+    if (!isValidSomaiyaEmail(newStudent.email)) {
+      setStudentEmailError('Please use a valid @somaiya.edu email');
+      return;
+    }
+    setStudentEmailError('');
+    
+    try {
+      const res = await fetch('/api/admin/students', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newStudent),
+      });
+      
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to add student');
+      }
+      
+      const student = await res.json();
+      setLocalStudents([...localStudents, student]);
+      setShowStudentModal(false);
+      setNewStudent({ name: '', email: '', year: '1', course: 'IT', division: 'A', batch: 'A1' });
+      setToastType('success');
+      setToastMessage('Student added successfully!');
+      setShowToast(true);
+    } catch (error) {
+      setToastType('error');
+      setToastMessage(error instanceof Error ? error.message : 'Failed to add student');
+      setShowToast(true);
+    }
+  };
+
+  const handleDeleteStudent = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this student?')) return;
+    
+    try {
+      const res = await fetch(`/api/admin/students?id=${id}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to delete student');
+      }
+      setLocalStudents(localStudents.filter(s => s.id !== id));
+      setToastType('success');
+      setToastMessage('Student deleted successfully!');
+      setShowToast(true);
+    } catch (error) {
+      setToastType('error');
+      setToastMessage(error instanceof Error ? error.message : 'Failed to delete student');
+      setShowToast(true);
+    }
+  };
+
+  const handleDeleteFaculty = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this faculty?')) return;
+    
+    try {
+      const res = await fetch(`/api/admin/faculty?id=${id}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to delete faculty');
+      }
+      setLocalFaculty(localFaculty.filter(f => f.id !== id));
+      setToastType('success');
+      setToastMessage('Faculty deleted successfully!');
+      setShowToast(true);
+    } catch (error) {
+      setToastType('error');
+      setToastMessage(error instanceof Error ? error.message : 'Failed to delete faculty');
+      setShowToast(true);
+    }
+  };
+
+  const handleAddFaculty = async () => {
+    if (!newFaculty.name || !newFaculty.email || !newFaculty.facultyCode) return;
+    
+    if (!isValidSomaiyaEmail(newFaculty.email)) {
+      setFacultyEmailError('Please use a valid @somaiya.edu email');
+      return;
+    }
+    setFacultyEmailError('');
+    
+    try {
+      const res = await fetch('/api/admin/faculty', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newFaculty),
+      });
+      
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to add faculty');
+      }
+      
+      const fac = await res.json();
+      setLocalFaculty([...localFaculty, fac]);
+      setShowFacultyModal(false);
+      setNewFaculty({ name: '', email: '', facultyCode: '' });
+      setToastType('success');
+      setToastMessage('Faculty added successfully!');
+      setShowToast(true);
+    } catch (error) {
+      setToastType('error');
+      setToastMessage(error instanceof Error ? error.message : 'Failed to add faculty');
+      setShowToast(true);
+    }
   };
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-6">
       {showToast && (
-        <Toast message={toastMessage} type="success" onClose={() => setShowToast(false)} />
+        <Toast message={toastMessage} type={toastType} onClose={() => setShowToast(false)} />
       )}
 
       <div className="mb-6">
-        <Button href="/admin/dashboard" variant="outline" size="sm" className="mb-4">
-          <ArrowLeftIcon className="w-4 h-4 mr-2" />
-          Back to Dashboard
-        </Button>
+        <Link
+          href="/admin/dashboard"
+          className="inline-flex items-center text-sm text-gray-500 hover:text-gray-700 mb-4"
+        >
+          <ArrowLeftIcon className="w-4 h-4 mr-1" />
+          Back
+        </Link>
         <h1 className="text-2xl font-bold text-gray-900">User Management</h1>
-        <p className="text-gray-600 mt-1">Manage student and faculty accounts</p>
+        <p className="text-gray-500 text-sm mt-1">Manage student and faculty accounts</p>
       </div>
 
+      {/* Loading State */}
+      {isLoading && (
+        <div className="text-center py-8 text-gray-500">Loading users...</div>
+      )}
+
       {/* Tabs */}
-      <div className="flex gap-2 mb-6">
+      {!isLoading && <div className="flex gap-2 mb-6">
         <button
           onClick={() => setActiveTab('students')}
-          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+          className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
             activeTab === 'students'
-              ? 'bg-blue-600 text-white'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              ? 'bg-gray-900 text-white'
+              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
           }`}
         >
           Students ({localStudents.length})
         </button>
         <button
           onClick={() => setActiveTab('faculty')}
-          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+          className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
             activeTab === 'faculty'
-              ? 'bg-blue-600 text-white'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              ? 'bg-gray-900 text-white'
+              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
           }`}
         >
           Faculty ({localFaculty.length})
         </button>
-      </div>
+      </div>}
 
       {/* Students Tab */}
-      {activeTab === 'students' && (
-        <Card>
-          <div className="p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-gray-900">Students</h2>
-              <Button size="sm" onClick={() => setShowStudentModal(true)}>
-                <PlusIcon className="w-4 h-4 mr-2" />
-                Add Student
-              </Button>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-gray-200">
-                    <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Name</th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Email</th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Department</th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Division</th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Batch</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {localStudents.map(student => (
-                    <tr key={student.id} className="border-b border-gray-100 hover:bg-gray-50">
-                      <td className="py-3 px-4 font-medium text-gray-900">{student.name}</td>
-                      <td className="py-3 px-4 text-gray-700">{student.email}</td>
-                      <td className="py-3 px-4 text-gray-700">
-                        {getDepartmentById(student.departmentId)?.name}
-                      </td>
-                      <td className="py-3 px-4 text-gray-700">{student.division}</td>
-                      <td className="py-3 px-4 text-gray-700">{student.batch}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+      {!isLoading && activeTab === 'students' && (
+        <div className="bg-white rounded-2xl border border-gray-100 p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-base font-semibold text-gray-900">Students</h2>
+            <button
+              onClick={() => setShowStudentModal(true)}
+              className="inline-flex items-center px-3 py-1.5 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors"
+            >
+              <PlusIcon className="w-4 h-4 mr-1.5" />
+              Add Student
+            </button>
           </div>
-        </Card>
+          <div className="overflow-x-auto -mx-6">
+            <table className="w-full min-w-[600px]">
+              <thead>
+                <tr className="border-b border-gray-100">
+                  <th className="text-left py-3 px-6 text-xs font-medium text-gray-400 uppercase tracking-wider">Name</th>
+                  <th className="text-left py-3 px-4 text-xs font-medium text-gray-400 uppercase tracking-wider">Email</th>
+                  <th className="text-left py-3 px-4 text-xs font-medium text-gray-400 uppercase tracking-wider">Year</th>
+                  <th className="text-left py-3 px-4 text-xs font-medium text-gray-400 uppercase tracking-wider">Division</th>
+                  <th className="text-left py-3 px-4 text-xs font-medium text-gray-400 uppercase tracking-wider">Batch</th>
+                  <th className="text-left py-3 px-6 text-xs font-medium text-gray-400 uppercase tracking-wider">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {localStudents.map(student => (
+                  <tr key={student.id} className="hover:bg-gray-50/50 transition-colors">
+                    <td className="py-3 px-6 text-sm font-medium text-gray-900">{student.name}</td>
+                    <td className="py-3 px-4 text-sm text-gray-600">{student.email}</td>
+                    <td className="py-3 px-4 text-sm text-gray-600">{student.year}</td>
+                    <td className="py-3 px-4 text-sm text-gray-600">{student.division}</td>
+                    <td className="py-3 px-4 text-sm text-gray-600">{student.batch || '-'}</td>
+                    <td className="py-3 px-6">
+                      <button
+                        onClick={() => handleDeleteStudent(student.id)}
+                        className="text-red-500 hover:text-red-700 text-xs font-medium"
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {localStudents.length === 0 && (
+            <p className="text-center text-sm text-gray-400 py-8">No students added yet</p>
+          )}
+        </div>
       )}
 
       {/* Faculty Tab */}
-      {activeTab === 'faculty' && (
-        <Card>
-          <div className="p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-gray-900">Faculty</h2>
-              <Button size="sm" onClick={() => setShowFacultyModal(true)}>
-                <PlusIcon className="w-4 h-4 mr-2" />
-                Add Faculty
-              </Button>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-gray-200">
-                    <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Name</th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Email</th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Department</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {localFaculty.map(fac => (
-                    <tr key={fac.id} className="border-b border-gray-100 hover:bg-gray-50">
-                      <td className="py-3 px-4 font-medium text-gray-900">{fac.name}</td>
-                      <td className="py-3 px-4 text-gray-700">{fac.email}</td>
-                      <td className="py-3 px-4 text-gray-700">
-                        {getDepartmentById(fac.departmentId)?.name}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+      {!isLoading && activeTab === 'faculty' && (
+        <div className="bg-white rounded-2xl border border-gray-100 p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-base font-semibold text-gray-900">Faculty</h2>
+            <button
+              onClick={() => setShowFacultyModal(true)}
+              className="inline-flex items-center px-3 py-1.5 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors"
+            >
+              <PlusIcon className="w-4 h-4 mr-1.5" />
+              Add Faculty
+            </button>
           </div>
-        </Card>
+          <div className="overflow-x-auto -mx-6">
+            <table className="w-full min-w-[600px]">
+              <thead>
+                <tr className="border-b border-gray-100">
+                  <th className="text-left py-3 px-6 text-xs font-medium text-gray-400 uppercase tracking-wider">Name</th>
+                  <th className="text-left py-3 px-4 text-xs font-medium text-gray-400 uppercase tracking-wider">Email</th>
+                  <th className="text-left py-3 px-4 text-xs font-medium text-gray-400 uppercase tracking-wider">Code</th>
+                  <th className="text-left py-3 px-4 text-xs font-medium text-gray-400 uppercase tracking-wider">Department</th>
+                  <th className="text-left py-3 px-6 text-xs font-medium text-gray-400 uppercase tracking-wider">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {localFaculty.map(fac => (
+                  <tr key={fac.id} className="hover:bg-gray-50/50 transition-colors">
+                    <td className="py-3 px-6 text-sm font-medium text-gray-900">{fac.name}</td>
+                    <td className="py-3 px-4 text-sm text-gray-600">{fac.email}</td>
+                    <td className="py-3 px-4 text-sm text-gray-600">{fac.facultyCode || '-'}</td>
+                    <td className="py-3 px-4 text-sm text-gray-600">Information Technology</td>
+                    <td className="py-3 px-6">
+                      <button
+                        onClick={() => handleDeleteFaculty(fac.id)}
+                        className="text-red-500 hover:text-red-700 text-xs font-medium"
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {localFaculty.length === 0 && (
+            <p className="text-center text-sm text-gray-400 py-8">No faculty added yet</p>
+          )}
+        </div>
       )}
 
       {/* Add Student Modal */}
@@ -201,26 +365,50 @@ export default function UserManagementPage() {
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-            <input
-              type="email"
-              value={newStudent.email}
-              onChange={e => setNewStudent({ ...newStudent, email: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              placeholder="Enter email"
-            />
+            <div className="relative">
+              <input
+                type="email"
+                value={newStudent.email}
+                onChange={e => {
+                  setNewStudent({ ...newStudent, email: e.target.value });
+                  if (studentEmailError) setStudentEmailError('');
+                }}
+                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
+                  studentEmailError ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                }`}
+                placeholder="name@somaiya.edu"
+              />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">@somaiya.edu</span>
+            </div>
+            {studentEmailError && (
+              <p className="text-xs text-red-500 mt-1">{studentEmailError}</p>
+            )}
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
-            <select
-              value={newStudent.departmentId}
-              onChange={e => setNewStudent({ ...newStudent, departmentId: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">Select department</option>
-              {departments.map(d => (
-                <option key={d.id} value={d.id}>{d.name}</option>
-              ))}
-            </select>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Year</label>
+              <select
+                value={newStudent.year}
+                onChange={e => setNewStudent({ ...newStudent, year: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="1">First Year</option>
+                <option value="2">Second Year</option>
+                <option value="3">Third Year</option>
+                <option value="4">Fourth Year</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Course</label>
+              <select
+                value={newStudent.course}
+                onChange={e => setNewStudent({ ...newStudent, course: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="IT">Information Technology</option>
+                <option value="AIDS">AI & Data Science</option>
+              </select>
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -270,26 +458,34 @@ export default function UserManagementPage() {
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-            <input
-              type="email"
-              value={newFaculty.email}
-              onChange={e => setNewFaculty({ ...newFaculty, email: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              placeholder="Enter email"
-            />
+            <div className="relative">
+              <input
+                type="email"
+                value={newFaculty.email}
+                onChange={e => {
+                  setNewFaculty({ ...newFaculty, email: e.target.value });
+                  if (facultyEmailError) setFacultyEmailError('');
+                }}
+                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
+                  facultyEmailError ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                }`}
+                placeholder="name@somaiya.edu"
+              />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">@somaiya.edu</span>
+            </div>
+            {facultyEmailError && (
+              <p className="text-xs text-red-500 mt-1">{facultyEmailError}</p>
+            )}
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
-            <select
-              value={newFaculty.departmentId}
-              onChange={e => setNewFaculty({ ...newFaculty, departmentId: e.target.value })}
+            <label className="block text-sm font-medium text-gray-700 mb-1">Faculty Code <span className="text-red-500">*</span></label>
+            <input
+              type="text"
+              value={newFaculty.facultyCode}
+              onChange={e => setNewFaculty({ ...newFaculty, facultyCode: e.target.value })}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">Select department</option>
-              {departments.map(d => (
-                <option key={d.id} value={d.id}>{d.name}</option>
-              ))}
-            </select>
+              placeholder="Enter short code, e.g. IT-F01"
+            />
           </div>
           <div className="flex justify-end gap-2 pt-4">
             <Button variant="outline" onClick={() => setShowFacultyModal(false)}>Cancel</Button>

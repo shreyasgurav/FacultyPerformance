@@ -1,0 +1,136 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model departments {
+  id       String     @id @db.VarChar(50)
+  name     String     @db.VarChar(100)
+  faculty  faculty[]
+  students students[]
+  subjects subjects[]
+}
+
+model faculty {
+  id            String      @id @db.VarChar(50)
+  name          String      @db.VarChar(100)
+  email         String      @unique(map: "email") @db.VarChar(150)
+  department_id String      @db.VarChar(50)
+  faculty_code  String?     @db.VarChar(50)
+  departments   departments @relation(fields: [department_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "faculty_ibfk_1")
+  users         users[]
+
+  @@index([department_id], map: "department_id")
+}
+
+model feedback_forms {
+  id                 String                @id @db.VarChar(50)
+  subject_name       String                @db.VarChar(150)
+  subject_code       String?               @db.VarChar(50)
+  faculty_name       String                @db.VarChar(100)
+  faculty_email      String                @db.VarChar(150)
+  division           String                @db.VarChar(10)
+  batch              String?               @db.VarChar(10)
+  year               String                @db.VarChar(10)
+  course             String                @default("IT") @db.VarChar(50)
+  status             feedback_forms_status @default(active)
+  created_at         DateTime?             @default(now()) @db.Timestamp(0)
+  feedback_responses feedback_responses[]
+}
+
+model feedback_parameters {
+  id                      String                    @id @db.VarChar(50)
+  text                    String                    @db.VarChar(255)
+  position                Int
+  feedback_response_items feedback_response_items[]
+}
+
+model feedback_response_items {
+  id                  BigInt              @id @default(autoincrement())
+  response_id         String              @db.VarChar(50)
+  parameter_id        String              @db.VarChar(50)
+  rating              Int                 @db.TinyInt
+  feedback_responses  feedback_responses  @relation(fields: [response_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "feedback_response_items_ibfk_1")
+  feedback_parameters feedback_parameters @relation(fields: [parameter_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "feedback_response_items_ibfk_2")
+
+  @@index([parameter_id], map: "parameter_id")
+  @@index([response_id], map: "response_id")
+}
+
+model feedback_responses {
+  id                      String                    @id @db.VarChar(50)
+  form_id                 String                    @db.VarChar(50)
+  student_id              String                    @db.VarChar(50)
+  comment                 String?                   @db.Text
+  submitted_at            DateTime?                 @default(now()) @db.Timestamp(0)
+  feedback_response_items feedback_response_items[]
+  feedback_forms          feedback_forms            @relation(fields: [form_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "feedback_responses_ibfk_1")
+  students                students                  @relation(fields: [student_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "feedback_responses_ibfk_2")
+
+  @@unique([form_id, student_id], map: "unique_form_student") // Prevent duplicate submissions at DB level
+  @@index([form_id], map: "form_id")
+  @@index([student_id], map: "student_id")
+}
+
+model students {
+  id                 String               @id @db.VarChar(50)
+  name               String               @db.VarChar(100)
+  email              String               @unique(map: "email") @db.VarChar(150)
+  department_id      String               @db.VarChar(50)
+  year               students_year
+  course             String               @default("IT") @db.VarChar(50)
+  division           String               @db.VarChar(10)
+  batch              String?              @db.VarChar(10)
+  feedback_responses feedback_responses[]
+  departments        departments          @relation(fields: [department_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "students_ibfk_1")
+  users              users[]
+
+  @@index([department_id], map: "department_id")
+}
+
+model subjects {
+  id            String      @id @db.VarChar(50)
+  name          String      @db.VarChar(150)
+  code          String      @db.VarChar(50)
+  department_id String      @db.VarChar(50)
+  departments   departments @relation(fields: [department_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "subjects_ibfk_1")
+
+  @@index([department_id], map: "department_id")
+}
+
+model users {
+  id         String     @id @db.VarChar(50)
+  name       String     @db.VarChar(100)
+  email      String     @unique(map: "email") @db.VarChar(150)
+  role       users_role
+  student_id String?    @db.VarChar(50)
+  faculty_id String?    @db.VarChar(50)
+  created_at DateTime?  @default(now()) @db.Timestamp(0)
+  students   students?  @relation(fields: [student_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "users_ibfk_1")
+  faculty    faculty?   @relation(fields: [faculty_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "users_ibfk_2")
+
+  @@index([faculty_id], map: "faculty_id")
+  @@index([student_id], map: "student_id")
+}
+
+enum users_role {
+  student
+  faculty
+  admin
+}
+
+enum students_year {
+  ONE   @map("1")
+  TWO   @map("2")
+  THREE @map("3")
+  FOUR  @map("4")
+}
+
+enum feedback_forms_status {
+  active
+  closed
+}

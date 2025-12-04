@@ -17,6 +17,7 @@ export interface Student {
   name: string;
   email: string;
   departmentId: string;
+  year: string; // '1' | '2' | '3' | '4'
   division: string;
   batch: string; // For practicals
 }
@@ -101,16 +102,16 @@ export const faculty: Faculty[] = [
 ];
 
 export const students: Student[] = [
-  { id: 'stu1', name: 'Amit Verma', email: 'amit.verma@student.edu', departmentId: 'dept1', division: 'A', batch: 'A1' },
-  { id: 'stu2', name: 'Priya Gupta', email: 'priya.gupta@student.edu', departmentId: 'dept1', division: 'A', batch: 'A1' },
-  { id: 'stu3', name: 'Rahul Sharma', email: 'rahul.sharma@student.edu', departmentId: 'dept1', division: 'A', batch: 'A2' },
-  { id: 'stu4', name: 'Sneha Patel', email: 'sneha.patel@student.edu', departmentId: 'dept1', division: 'B', batch: 'B1' },
-  { id: 'stu5', name: 'Vikash Kumar', email: 'vikash.kumar@student.edu', departmentId: 'dept2', division: 'A', batch: 'A1' },
-  { id: 'stu6', name: 'Anjali Singh', email: 'anjali.singh@student.edu', departmentId: 'dept2', division: 'A', batch: 'A2' },
-  { id: 'stu7', name: 'Rohan Mehta', email: 'rohan.mehta@student.edu', departmentId: 'dept3', division: 'A', batch: 'A1' },
-  { id: 'stu8', name: 'Kavita Joshi', email: 'kavita.joshi@student.edu', departmentId: 'dept3', division: 'A', batch: 'A1' },
-  { id: 'stu9', name: 'Nikhil Rao', email: 'nikhil.rao@student.edu', departmentId: 'dept4', division: 'A', batch: 'A1' },
-  { id: 'stu10', name: 'Pooja Deshmukh', email: 'pooja.deshmukh@student.edu', departmentId: 'dept4', division: 'A', batch: 'A2' },
+  { id: 'stu1', name: 'Amit Verma', email: 'amit.verma@student.edu', departmentId: 'dept1', year: '2', division: 'A', batch: 'A1' },
+  { id: 'stu2', name: 'Priya Gupta', email: 'priya.gupta@student.edu', departmentId: 'dept1', year: '2', division: 'A', batch: 'A1' },
+  { id: 'stu3', name: 'Rahul Sharma', email: 'rahul.sharma@student.edu', departmentId: 'dept1', year: '2', division: 'A', batch: 'A2' },
+  { id: 'stu4', name: 'Sneha Patel', email: 'sneha.patel@student.edu', departmentId: 'dept1', year: '2', division: 'B', batch: 'B1' },
+  { id: 'stu5', name: 'Vikash Kumar', email: 'vikash.kumar@student.edu', departmentId: 'dept1', year: '3', division: 'A', batch: 'A1' },
+  { id: 'stu6', name: 'Anjali Singh', email: 'anjali.singh@student.edu', departmentId: 'dept1', year: '3', division: 'A', batch: 'A2' },
+  { id: 'stu7', name: 'Rohan Mehta', email: 'rohan.mehta@student.edu', departmentId: 'dept1', year: '3', division: 'A', batch: 'A1' },
+  { id: 'stu8', name: 'Kavita Joshi', email: 'kavita.joshi@student.edu', departmentId: 'dept1', year: '3', division: 'A', batch: 'A1' },
+  { id: 'stu9', name: 'Nikhil Rao', email: 'nikhil.rao@student.edu', departmentId: 'dept1', year: '4', division: 'A', batch: 'A1' },
+  { id: 'stu10', name: 'Pooja Deshmukh', email: 'pooja.deshmukh@student.edu', departmentId: 'dept1', year: '4', division: 'A', batch: 'A2' },
 ];
 
 export const subjects: Subject[] = [
@@ -444,6 +445,11 @@ export function toggleFormStatus(formId: string): void {
   feedbackForms = feedbackForms.map(f =>
     f.id === formId ? { ...f, status: f.status === 'active' ? 'closed' : 'active' } : f
   );
+}
+
+// Add a new feedback form
+export function addFeedbackForm(form: FeedbackForm): void {
+  feedbackForms = [...feedbackForms, form];
 }
 
 // Generate feedback forms from timetable

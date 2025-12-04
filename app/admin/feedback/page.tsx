@@ -1,70 +1,121 @@
 'use client';
 
-import { useState } from 'react';
-import Card from '@/components/Card';
-import Button from '@/components/Button';
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import Toast from '@/components/Toast';
-import { ArrowLeftIcon, FilterIcon } from '@/components/Icons';
-import {
-  feedbackForms,
-  departments,
-  subjects,
-  getSubjectById,
-  getFacultyById,
-  getDepartmentById,
-  getFeedbackResponsesByFormId,
-  toggleFormStatus,
-} from '@/lib/mockData';
+import { ArrowLeftIcon } from '@/components/Icons';
+
+interface FeedbackForm {
+  id: string;
+  subject_name: string;
+  subject_code: string | null;
+  faculty_name: string;
+  faculty_email: string;
+  division: string;
+  batch: string | null;
+  year: string;
+  course: string;
+  status: string;
+}
+
+interface FeedbackResponse {
+  id: string;
+  form_id: string;
+  student_id: string;
+}
 
 export default function FeedbackMonitoringPage() {
-  const [localForms, setLocalForms] = useState(feedbackForms);
-  const [departmentFilter, setDepartmentFilter] = useState('');
+  const [forms, setForms] = useState<FeedbackForm[]>([]);
+  const [responses, setResponses] = useState<FeedbackResponse[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [yearFilter, setYearFilter] = useState('');
+  const [courseFilter, setCourseFilter] = useState('');
   const [divisionFilter, setDivisionFilter] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
 
-  // Get unique divisions
-  const divisions = Array.from(new Set(localForms.map(f => f.division)));
+  const years = [
+    { value: '1', label: 'First Year' },
+    { value: '2', label: 'Second Year' },
+    { value: '3', label: 'Third Year' },
+    { value: '4', label: 'Fourth Year' },
+  ];
 
-  // Filter forms
-  const filteredForms = localForms.filter(form => {
-    const subject = getSubjectById(form.subjectId);
-    if (departmentFilter && subject?.departmentId !== departmentFilter) return false;
+  const courses = [
+    { value: 'IT', label: 'Information Technology' },
+    { value: 'AIDS', label: 'AI & Data Science' },
+  ];
+
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        const [formsRes, responsesRes] = await Promise.all([
+          fetch('/api/admin/forms'),
+          fetch('/api/responses'),
+        ]);
+
+        if (formsRes.ok) {
+          const data = await formsRes.json();
+          setForms(data);
+        }
+
+        if (responsesRes.ok) {
+          const data = await responsesRes.json();
+          setResponses(data);
+        }
+      } catch (error) {
+        console.error('Error fetching data:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    fetchData();
+  }, []);
+
+  const divisions = Array.from(new Set(forms.map(f => f.division)));
+
+  const filteredForms = forms.filter(form => {
+    if (yearFilter && form.year !== yearFilter) return false;
+    if (courseFilter && form.course !== courseFilter) return false;
     if (divisionFilter && form.division !== divisionFilter) return false;
-    if (statusFilter && form.status !== statusFilter) return false;
     return true;
   });
 
-  const handleToggleStatus = (formId: string) => {
-    toggleFormStatus(formId);
-    setLocalForms([...feedbackForms]);
-    const form = feedbackForms.find(f => f.id === formId);
-    setToastMessage(`Feedback form ${form?.status === 'active' ? 'opened' : 'closed'} successfully!`);
-    setShowToast(true);
+  const getResponseCount = (formId: string) => {
+    return responses.filter(r => r.form_id === formId).length;
   };
 
-  const handleOpenAll = () => {
-    filteredForms.forEach(form => {
-      if (form.status === 'closed') {
-        toggleFormStatus(form.id);
+  const handleDeleteForm = async (form: FeedbackForm) => {
+    const confirmed = window.confirm(
+      `Are you sure you want to delete this feedback form for ${form.subject_name} (${form.division}${form.batch ? ' / ' + form.batch : ''})?\n\nThis will remove all responses linked to this form.`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      const res = await fetch(`/api/admin/forms?id=${encodeURIComponent(form.id)}`, {
+        method: 'DELETE',
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'Failed to delete form');
       }
-    });
-    setLocalForms([...feedbackForms]);
-    setToastMessage('All filtered forms opened!');
-    setShowToast(true);
+
+      setForms(prev => prev.filter(f => f.id !== form.id));
+      setToastMessage('Feedback form deleted successfully');
+      setShowToast(true);
+    } catch (error) {
+      console.error('Error deleting form', error);
+      setToastMessage(error instanceof Error ? error.message : 'Failed to delete form');
+      setShowToast(true);
+    }
   };
 
-  const handleCloseAll = () => {
-    filteredForms.forEach(form => {
-      if (form.status === 'active') {
-        toggleFormStatus(form.id);
-      }
-    });
-    setLocalForms([...feedbackForms]);
-    setToastMessage('All filtered forms closed!');
-    setShowToast(true);
-  };
+  if (isLoading) {
+    return <div className="p-6 text-gray-500">Loading...</div>;
+  }
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-6">
@@ -73,139 +124,113 @@ export default function FeedbackMonitoringPage() {
       )}
 
       <div className="mb-6">
-        <Button href="/admin/dashboard" variant="outline" size="sm" className="mb-4">
-          <ArrowLeftIcon className="w-4 h-4 mr-2" />
-          Back to Dashboard
-        </Button>
+        <Link
+          href="/admin/dashboard"
+          className="inline-flex items-center text-sm text-gray-500 hover:text-gray-700 mb-4"
+        >
+          <ArrowLeftIcon className="w-4 h-4 mr-1" />
+          Back
+        </Link>
         <h1 className="text-2xl font-bold text-gray-900">Feedback Monitoring</h1>
-        <p className="text-gray-600 mt-1">Monitor and manage feedback collection status</p>
+        <p className="text-gray-500 text-sm mt-1">Monitor and manage feedback collection status</p>
       </div>
 
       {/* Filters */}
-      <Card className="mb-6">
-        <div className="p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <FilterIcon className="w-5 h-5 text-gray-500" />
-            <h2 className="text-lg font-semibold text-gray-900">Filters</h2>
+      <div className="bg-white rounded-2xl border border-gray-100 p-5 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1.5">Year</label>
+            <select
+              value={yearFilter}
+              onChange={e => setYearFilter(e.target.value)}
+              className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors"
+            >
+              <option value="">All Years</option>
+              {years.map(y => (
+                <option key={y.value} value={y.value}>{y.label}</option>
+              ))}
+            </select>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
-              <select
-                value={departmentFilter}
-                onChange={e => setDepartmentFilter(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">All Departments</option>
-                {departments.map(d => (
-                  <option key={d.id} value={d.id}>{d.name}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Division</label>
-              <select
-                value={divisionFilter}
-                onChange={e => setDivisionFilter(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">All Divisions</option>
-                {divisions.map(d => (
-                  <option key={d} value={d}>{d}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-              <select
-                value={statusFilter}
-                onChange={e => setStatusFilter(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">All Status</option>
-                <option value="active">Active</option>
-                <option value="closed">Closed</option>
-              </select>
-            </div>
-            <div className="flex items-end gap-2">
-              <Button variant="outline" size="sm" onClick={handleOpenAll}>Open All</Button>
-              <Button variant="outline" size="sm" onClick={handleCloseAll}>Close All</Button>
-            </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1.5">Course</label>
+            <select
+              value={courseFilter}
+              onChange={e => setCourseFilter(e.target.value)}
+              className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors"
+            >
+              <option value="">All Courses</option>
+              {courses.map(c => (
+                <option key={c.value} value={c.value}>{c.label}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1.5">Division</label>
+            <select
+              value={divisionFilter}
+              onChange={e => setDivisionFilter(e.target.value)}
+              className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors"
+            >
+              <option value="">All Divisions</option>
+              {divisions.map(d => (
+                <option key={d} value={d}>{d}</option>
+              ))}
+            </select>
           </div>
         </div>
-      </Card>
+      </div>
 
       {/* Forms Table */}
-      <Card>
-        <div className="p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">
-              Feedback Forms ({filteredForms.length})
-            </h2>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+      <div className="bg-white rounded-2xl border border-gray-100 p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-base font-semibold text-gray-900">
+            Feedback Forms ({filteredForms.length})
+          </h2>
+        </div>
+        {filteredForms.length === 0 ? (
+          <p className="text-gray-400 text-center text-sm py-8">No feedback forms found.</p>
+        ) : (
+          <div className="overflow-x-auto -mx-6">
+            <table className="w-full min-w-[700px]">
               <thead>
-                <tr className="border-b border-gray-200 bg-gray-50">
-                  <th className="text-left py-3 px-4 font-medium text-gray-600">Subject</th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-600">Faculty</th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-600">Division/Batch</th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-600">Responses</th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-600">Completion</th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-600">Status</th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-600">Action</th>
+                <tr className="border-b border-gray-100">
+                  <th className="text-left py-3 px-6 text-xs font-medium text-gray-400 uppercase tracking-wider">Subject</th>
+                  <th className="text-left py-3 px-4 text-xs font-medium text-gray-400 uppercase tracking-wider">Faculty</th>
+                  <th className="text-left py-3 px-4 text-xs font-medium text-gray-400 uppercase tracking-wider">Year/Course</th>
+                  <th className="text-left py-3 px-4 text-xs font-medium text-gray-400 uppercase tracking-wider">Division</th>
+                  <th className="text-left py-3 px-4 text-xs font-medium text-gray-400 uppercase tracking-wider">Responses</th>
+                  <th className="text-left py-3 px-6 text-xs font-medium text-gray-400 uppercase tracking-wider">Action</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-gray-50">
                 {filteredForms.map(form => {
-                  const subject = getSubjectById(form.subjectId);
-                  const fac = getFacultyById(form.facultyId);
-                  const responses = getFeedbackResponsesByFormId(form.id).length;
-                  const expectedResponses = 5; // Mock expected
-                  const completion = Math.min(100, Math.round((responses / expectedResponses) * 100));
+                  const responseCount = getResponseCount(form.id);
                   
                   return (
-                    <tr key={form.id} className="border-b border-gray-100 hover:bg-gray-50">
-                      <td className="py-3 px-4">
-                        <p className="font-medium text-gray-900">{subject?.name}</p>
-                        <p className="text-xs text-gray-500">{subject?.code}</p>
+                    <tr key={form.id} className="hover:bg-gray-50/50 transition-colors">
+                      <td className="py-3 px-6">
+                        <p className="text-sm font-medium text-gray-900">{form.subject_name}</p>
+                        {form.subject_code && <p className="text-xs text-gray-400">{form.subject_code}</p>}
                       </td>
-                      <td className="py-3 px-4 text-gray-700">{fac?.name}</td>
-                      <td className="py-3 px-4 text-gray-700">
+                      <td className="py-3 px-4 text-sm text-gray-600">{form.faculty_name}</td>
+                      <td className="py-3 px-4 text-sm text-gray-600">
+                        Year {form.year} · {form.course === 'AIDS' ? 'AI&DS' : 'IT'}
+                      </td>
+                      <td className="py-3 px-4 text-sm text-gray-600">
                         {form.division}{form.batch ? ` / ${form.batch}` : ''}
                       </td>
-                      <td className="py-3 px-4 text-gray-700">{responses}</td>
                       <td className="py-3 px-4">
-                        <div className="flex items-center gap-2">
-                          <div className="w-16 bg-gray-200 rounded-full h-2">
-                            <div
-                              className={`h-2 rounded-full ${
-                                completion >= 80 ? 'bg-green-500' :
-                                completion >= 50 ? 'bg-yellow-500' : 'bg-red-500'
-                              }`}
-                              style={{ width: `${completion}%` }}
-                            />
-                          </div>
-                          <span className="text-xs text-gray-600">{completion}%</span>
-                        </div>
-                      </td>
-                      <td className="py-3 px-4">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          form.status === 'active' 
-                            ? 'bg-green-100 text-green-800' 
-                            : 'bg-gray-100 text-gray-800'
-                        }`}>
-                          {form.status === 'active' ? 'Active' : 'Closed'}
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+                          {responseCount}
                         </span>
                       </td>
-                      <td className="py-3 px-4">
-                        <Button
-                          size="sm"
-                          variant={form.status === 'active' ? 'outline' : 'primary'}
-                          onClick={() => handleToggleStatus(form.id)}
+                      <td className="py-3 px-6">
+                        <button
+                          onClick={() => handleDeleteForm(form)}
+                          className="text-red-500 hover:text-red-700 text-xs font-medium"
                         >
-                          {form.status === 'active' ? 'Close' : 'Open'}
-                        </Button>
+                          Delete
+                        </button>
                       </td>
                     </tr>
                   );
@@ -213,8 +238,8 @@ export default function FeedbackMonitoringPage() {
               </tbody>
             </table>
           </div>
-        </div>
-      </Card>
+        )}
+      </div>
     </div>
   );
 }

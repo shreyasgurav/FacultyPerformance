@@ -1,19 +1,44 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import Card from '@/components/Card';
-import Button from '@/components/Button';
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import Toast from '@/components/Toast';
-import { ArrowLeftIcon } from '@/components/Icons';
-import {
-  getFeedbackFormById,
-  getSubjectById,
-  getFacultyById,
-  feedbackParameters,
-  addFeedbackResponse,
-  FeedbackResponse,
-} from '@/lib/mockData';
+
+interface FeedbackForm {
+  id: string;
+  subject_name: string;
+  subject_code: string | null;
+  faculty_name: string;
+  faculty_email: string;
+  division: string;
+  batch: string | null;
+  year: string;
+  course: string;
+  status: string;
+}
+
+interface FeedbackParameter {
+  id: string;
+  text: string;
+  position: number;
+}
+
+interface FeedbackResponse {
+  id: string;
+  form_id: string;
+  student_id: string;
+}
+
+interface StudentRecord {
+  id: string;
+  name: string;
+  email: string;
+  year: string;
+  course: string;
+  division: string;
+  batch: string;
+}
 
 interface PageProps {
   params: { formId: string };
@@ -21,151 +46,247 @@ interface PageProps {
 
 export default function FeedbackFormPage({ params }: PageProps) {
   const router = useRouter();
-  const form = getFeedbackFormById(params.formId);
-  const subject = form ? getSubjectById(form.subjectId) : null;
-  const faculty = form ? getFacultyById(form.facultyId) : null;
-
+  const searchParams = useSearchParams();
+  const [form, setForm] = useState<FeedbackForm | null>(null);
+  const [parameters, setParameters] = useState<FeedbackParameter[]>([]);
+  const [students, setStudents] = useState<StudentRecord[]>([]);
+  const [responses, setResponses] = useState<FeedbackResponse[]>([]);
   const [ratings, setRatings] = useState<Record<string, number>>({});
   const [comment, setComment] = useState('');
   const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState<'success' | 'error'>('success');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [studentId, setStudentId] = useState<string | null>(null);
+  const [alreadySubmitted, setAlreadySubmitted] = useState(false);
 
-  if (!form || !subject || !faculty) {
-    return (
-      <div className="max-w-3xl mx-auto px-4 py-8">
-        <Card className="p-8 text-center">
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">Form Not Found</h2>
-          <p className="text-gray-600 mb-4">The feedback form you&apos;re looking for doesn&apos;t exist.</p>
-          <Button href="/student/dashboard">Back to Dashboard</Button>
-        </Card>
-      </div>
-    );
-  }
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        const [formRes, paramsRes, studentsRes, responsesRes] = await Promise.all([
+          fetch(`/api/forms/${params.formId}`),
+          fetch('/api/feedback-parameters'),
+          fetch('/api/admin/students'),
+          fetch('/api/responses'),
+        ]);
+
+        if (formRes.ok) {
+          const formData = await formRes.json();
+          setForm(formData);
+        }
+
+        if (paramsRes.ok) {
+          const paramsData = await paramsRes.json();
+          setParameters(paramsData);
+        }
+
+        let allStudents: StudentRecord[] = [];
+        if (studentsRes.ok) {
+          allStudents = await studentsRes.json();
+          setStudents(allStudents);
+        }
+
+        let allResponses: FeedbackResponse[] = [];
+        if (responsesRes.ok) {
+          allResponses = await responsesRes.json();
+          setResponses(allResponses);
+        }
+
+        // Get student ID from URL or use first matching student
+        const urlStudentId = searchParams.get('studentId');
+        if (urlStudentId && allStudents.find(s => s.id === urlStudentId)) {
+          setStudentId(urlStudentId);
+          const hasSubmitted = allResponses.some(
+            r => r.form_id === params.formId && r.student_id === urlStudentId
+          );
+          setAlreadySubmitted(hasSubmitted);
+        } else if (allStudents.length > 0) {
+          setStudentId(allStudents[0].id);
+          const hasSubmitted = allResponses.some(
+            r => r.form_id === params.formId && r.student_id === allStudents[0].id
+          );
+          setAlreadySubmitted(hasSubmitted);
+        }
+      } catch (error) {
+        console.error('Error loading data:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    fetchData();
+  }, [params.formId, searchParams]);
+
+  useEffect(() => {
+    if (studentId) {
+      const hasSubmitted = responses.some(
+        r => r.form_id === params.formId && r.student_id === studentId
+      );
+      setAlreadySubmitted(hasSubmitted);
+    }
+  }, [studentId, responses, params.formId]);
 
   const handleRatingChange = (parameterId: string, rating: number) => {
     setRatings(prev => ({ ...prev, [parameterId]: rating }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!form || !studentId || alreadySubmitted) return;
+
     setIsSubmitting(true);
 
-    // Create feedback response
-    const response: FeedbackResponse = {
-      id: `resp_${Date.now()}`,
-      formId: form.id,
-      studentId: 'stu1', // Mock student
-      answers: feedbackParameters.map(p => ({
-        parameterId: p.id,
-        rating: ratings[p.id] || 0,
-      })),
-      comment,
-      submittedAt: new Date().toISOString().split('T')[0],
-    };
+    try {
+      const res = await fetch('/api/responses', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          formId: form.id,
+          studentId,
+          ratings,
+          comment,
+        }),
+      });
 
-    // Add to mock data
-    addFeedbackResponse(response);
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to submit feedback');
+      }
 
-    setTimeout(() => {
+      setToastType('success');
+      setToastMessage('Feedback submitted successfully!');
       setShowToast(true);
+
       setTimeout(() => {
         router.push('/student/dashboard');
       }, 1500);
-    }, 500);
+    } catch (error) {
+      setToastType('error');
+      setToastMessage(error instanceof Error ? error.message : 'Failed to submit');
+      setShowToast(true);
+      setIsSubmitting(false);
+    }
   };
 
-  const allParametersRated = feedbackParameters.every(p => ratings[p.id] !== undefined);
+  if (isLoading) {
+    return <div className="p-6 text-gray-500">Loading...</div>;
+  }
+
+  if (!form) {
+    return (
+      <div className="max-w-md mx-auto px-4 py-12 text-center">
+        <div className="bg-white rounded-2xl border border-gray-100 p-8">
+          <p className="text-sm text-gray-500 mb-4">Form not found.</p>
+          <Link href="/student/dashboard" className="text-sm text-blue-600 hover:text-blue-800 font-medium">
+            ← Back to Dashboard
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (alreadySubmitted) {
+    return (
+      <div className="max-w-md mx-auto px-4 py-12 text-center">
+        <div className="bg-white rounded-2xl border border-gray-100 p-8">
+          <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+          <p className="text-sm text-gray-600 mb-4">You have already submitted feedback for this form.</p>
+          <Link href="/student/dashboard" className="text-sm text-blue-600 hover:text-blue-800 font-medium">
+            ← Back to Dashboard
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  const allParametersRated = parameters.every(p => ratings[p.id] !== undefined);
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-8">
+    <div className="max-w-lg mx-auto px-4 py-6">
       {showToast && (
         <Toast
-          message="Feedback submitted successfully!"
-          type="success"
+          message={toastMessage}
+          type={toastType}
           onClose={() => setShowToast(false)}
         />
       )}
 
-      <div className="mb-6">
-        <Button href="/student/dashboard" variant="outline" size="sm" className="mb-4">
-          <ArrowLeftIcon className="w-4 h-4 mr-2" />
-          Back to Dashboard
-        </Button>
-        <h1 className="text-2xl font-bold text-gray-900">Feedback for {subject.name}</h1>
-        <p className="text-gray-600 mt-1">Faculty: {faculty.name}</p>
-        <div className="flex gap-4 mt-2 text-sm text-gray-500">
-          <span>Code: {subject.code}</span>
-          <span>Division: {form.division}</span>
-          {form.batch && <span>Batch: {form.batch}</span>}
-          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-            subject.type === 'theory' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'
-          }`}>
-            {subject.type === 'theory' ? 'Theory' : 'Practical'}
-          </span>
+      {/* Header */}
+      <div className="flex items-center mb-8">
+        <Link 
+          href="/student/dashboard" 
+          className="p-2 -ml-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+        </Link>
+        <div className="flex-1 text-center pr-7">
+          <h1 className="text-lg font-semibold text-gray-900">{form.subject_name}</h1>
+          <p className="text-sm text-gray-500 mt-0.5">{form.faculty_name}</p>
         </div>
       </div>
 
       <form onSubmit={handleSubmit}>
-        <Card className="mb-6">
-          <div className="p-6 border-b border-gray-200 bg-gray-50">
-            <h2 className="text-lg font-semibold text-gray-900">Rate Each Parameter</h2>
-            <p className="text-sm text-gray-500 mt-1">
-              Please rate each aspect on a scale of 0 to 10 (0 = Very Poor, 10 = Excellent)
-            </p>
-          </div>
-          <div className="p-6 space-y-8">
-            {feedbackParameters.map((param, index) => (
-              <div key={param.id} className="border-b border-gray-100 pb-6 last:border-0 last:pb-0">
-                <label className="block text-sm font-medium text-gray-900 mb-4">
-                  {index + 1}. {param.text}
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(rating => (
-                    <button
-                      key={rating}
-                      type="button"
-                      onClick={() => handleRatingChange(param.id, rating)}
-                      className={`w-10 h-10 rounded-lg flex items-center justify-center text-sm font-medium border-2 transition-all ${
-                        ratings[param.id] === rating
-                          ? 'bg-blue-600 text-white border-blue-600 scale-110'
-                          : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400 hover:bg-blue-50'
-                      }`}
-                    >
-                      {rating}
-                    </button>
-                  ))}
-                </div>
-                {ratings[param.id] !== undefined && (
-                  <p className="text-sm text-gray-500 mt-2">
-                    Your rating: <span className="font-semibold text-blue-600">{ratings[param.id]}/10</span>
-                  </p>
-                )}
+
+        {/* Questions */}
+        <div className="space-y-8">
+          {parameters.map((param, index) => (
+            <div key={param.id}>
+              <p className="text-sm text-gray-700 mb-3">
+                <span className="text-gray-400 mr-1">{index + 1}.</span> {param.text}
+              </p>
+              <div className="grid grid-cols-11 gap-1">
+                {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(rating => (
+                  <button
+                    key={rating}
+                    type="button"
+                    onClick={() => handleRatingChange(param.id, rating)}
+                    className={`h-9 rounded-lg text-xs font-medium transition-all ${
+                      ratings[param.id] === rating
+                        ? 'bg-gray-900 text-white scale-105'
+                        : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                    }`}
+                  >
+                    {rating}
+                  </button>
+                ))}
               </div>
-            ))}
-          </div>
-        </Card>
-
-        <Card className="mb-6">
-          <div className="p-6">
-            <label className="block text-sm font-medium text-gray-900 mb-2">
-              Additional Feedback / Comments (Optional)
-            </label>
-            <textarea
-              value={comment}
-              onChange={e => setComment(e.target.value)}
-              rows={4}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
-              placeholder="Share any additional feedback, suggestions, or comments about this subject/faculty..."
-            />
-          </div>
-        </Card>
-
-        <div className="flex justify-end gap-4">
-          <Button href="/student/dashboard" variant="outline">Cancel</Button>
-          <Button type="submit" disabled={!allParametersRated || isSubmitting}>
-            {isSubmitting ? 'Submitting...' : 'Submit Feedback'}
-          </Button>
+            </div>
+          ))}
         </div>
+
+        {/* Comment */}
+        <div className="mt-10">
+          <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">
+            Comments (optional)
+          </label>
+          <textarea
+            value={comment}
+            onChange={e => setComment(e.target.value)}
+            rows={3}
+            className="w-full px-4 py-3 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-gray-900 focus:border-gray-900 focus:bg-white resize-none transition-colors"
+            placeholder="Any additional feedback..."
+          />
+        </div>
+
+        {/* Submit */}
+        <button
+          type="submit"
+          disabled={!allParametersRated || isSubmitting}
+          className={`w-full mt-6 py-3 rounded-xl text-sm font-medium transition-all ${
+            allParametersRated && !isSubmitting
+              ? 'bg-gray-900 text-white hover:bg-gray-800'
+              : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+          }`}
+        >
+          {isSubmitting ? 'Submitting...' : 'Submit Feedback'}
+        </button>
       </form>
     </div>
   );
