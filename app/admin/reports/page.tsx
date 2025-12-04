@@ -176,15 +176,8 @@ export default function ReportsPage() {
     <div className="max-w-6xl mx-auto px-4 py-6">
       {/* Header */}
       <div className="mb-6">
-        <Link
-          href="/admin/dashboard"
-          className="inline-flex items-center text-sm text-gray-500 hover:text-gray-700 mb-4"
-        >
-          <ArrowLeftIcon className="w-4 h-4 mr-1" />
-          Back
-        </Link>
-        <h1 className="text-2xl font-bold text-gray-900">Faculty Reports</h1>
-        <p className="text-gray-500 text-sm mt-1">View detailed feedback analysis for each faculty member</p>
+        <h1 className="text-2xl font-bold text-gray-900">Reports & Analytics</h1>
+        <p className="text-gray-500 text-sm mt-1">View detailed analytics for faculty feedback</p>
       </div>
 
       {/* Faculty Table */}

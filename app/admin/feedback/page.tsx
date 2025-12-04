@@ -124,15 +124,8 @@ export default function FeedbackMonitoringPage() {
       )}
 
       <div className="mb-6">
-        <Link
-          href="/admin/dashboard"
-          className="inline-flex items-center text-sm text-gray-500 hover:text-gray-700 mb-4"
-        >
-          <ArrowLeftIcon className="w-4 h-4 mr-1" />
-          Back
-        </Link>
         <h1 className="text-2xl font-bold text-gray-900">Feedback Monitoring</h1>
-        <p className="text-gray-500 text-sm mt-1">Monitor and manage feedback collection status</p>
+        <p className="text-gray-500 text-sm mt-1">View and analyze feedback responses</p>
       </div>
 
       {/* Filters */}

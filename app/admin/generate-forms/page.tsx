@@ -199,13 +199,6 @@ export default function GenerateFormsPage() {
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
       <div className="mb-8">
-        <Link
-          href="/admin/dashboard"
-          className="inline-flex items-center text-sm text-gray-500 hover:text-gray-700 mb-4"
-        >
-          <ArrowLeftIcon className="w-4 h-4 mr-1" />
-          Back
-        </Link>
         <h1 className="text-2xl font-bold text-gray-900">Generate Forms</h1>
         <p className="text-gray-500 text-sm mt-1">Create feedback forms for divisions or batches</p>
       </div>
