@@ -33,6 +33,8 @@ interface FeedbackParameter {
   id: string;
   text: string;
   position: number;
+  form_type: string;
+  question_type: string;
 }
 
 export default function ReportsPage() {
@@ -71,6 +73,19 @@ export default function ReportsPage() {
     fetchData();
   }, []);
 
+  // Helper to normalize rating to 1-10 scale
+  const normalizeRating = (rating: number, questionType: string): number => {
+    if (questionType === 'yes_no') {
+      // 0 -> 1, 1 -> 10
+      return rating === 1 ? 10 : 1;
+    } else if (questionType === 'scale_3') {
+      // 1 -> 3.3, 2 -> 6.6, 3 -> 10
+      return (rating / 3) * 10;
+    }
+    // scale_1_10 stays as is
+    return rating;
+  };
+
   // Calculate stats for a faculty member (across all their forms)
   const getFacultyStats = (facultyEmail: string) => {
     const facultyForms = forms.filter(f => f.faculty_email.toLowerCase() === facultyEmail.toLowerCase());
@@ -81,9 +96,16 @@ export default function ReportsPage() {
     let ratingCount = 0;
 
     facultyResponses.forEach(resp => {
+      const form = forms.find(f => f.id === resp.form_id);
+      const formType = form?.batch ? 'lab' : 'theory';
+      const formParameters = parameters.filter(p => p.form_type === formType);
+      
       resp.feedback_response_items.forEach(item => {
-        totalRating += item.rating;
-        ratingCount++;
+        const param = formParameters.find(p => p.id === item.parameter_id);
+        if (param) {
+          totalRating += normalizeRating(item.rating, param.question_type);
+          ratingCount++;
+        }
       });
     });
 
@@ -98,22 +120,32 @@ export default function ReportsPage() {
 
   // Calculate stats for a single form/subject
   const getFormStats = (formId: string) => {
+    const form = forms.find(f => f.id === formId);
     const formResponses = responses.filter(r => r.form_id === formId);
+    
+    // Determine form type: if batch exists, it's lab; otherwise theory
+    const formType = form?.batch ? 'lab' : 'theory';
+    
+    // Filter parameters by form type
+    const formParameters = parameters.filter(p => p.form_type === formType);
     
     let totalRating = 0;
     let ratingCount = 0;
 
     formResponses.forEach(resp => {
       resp.feedback_response_items.forEach(item => {
-        totalRating += item.rating;
-        ratingCount++;
+        const param = formParameters.find(p => p.id === item.parameter_id);
+        if (param) {
+          totalRating += normalizeRating(item.rating, param.question_type);
+          ratingCount++;
+        }
       });
     });
 
     const avgRating = ratingCount > 0 ? totalRating / ratingCount : 0;
 
-    // Per-parameter averages
-    const parameterAverages = parameters.map(param => {
+    // Per-parameter averages (only for this form type's parameters)
+    const parameterAverages = formParameters.map(param => {
       let paramTotal = 0;
       let paramCount = 0;
 
@@ -130,6 +162,7 @@ export default function ReportsPage() {
         text: param.text,
         average: paramCount > 0 ? paramTotal / paramCount : 0,
         count: paramCount,
+        question_type: param.question_type || 'scale_1_10',
       };
     });
 
@@ -403,30 +436,54 @@ export default function ReportsPage() {
                           <div>
                             <p className="text-sm font-semibold text-gray-700 mb-3">Question-wise Ratings</p>
                             <div className="space-y-3 max-h-64 overflow-y-auto pr-1">
-                              {stats.parameterAverages.map((param, idx) => (
-                                <div key={param.id}>
-                                  <div className="flex items-center justify-between text-sm mb-1">
-                                    <span className="text-gray-700">
-                                      {idx + 1}. {param.text}
-                                    </span>
-                                    <span className={`font-semibold ${
-                                      param.average >= 7 ? 'text-green-600' :
-                                      param.average >= 5 ? 'text-yellow-600' : 'text-red-600'
-                                    }`}>
-                                      {param.average.toFixed(1)}
-                                    </span>
+                              {stats.parameterAverages.map((param, idx) => {
+                                // Normalize all ratings to 1-10 scale for display
+                                let normalizedRating = 0;
+                                let percentage = 0;
+
+                                if (param.question_type === 'yes_no') {
+                                  // 0 -> 1, 1 -> 10
+                                  normalizedRating = param.average === 1 ? 10 : (param.average * 9 + 1);
+                                  percentage = normalizedRating * 10;
+                                } else if (param.question_type === 'scale_3') {
+                                  // 1 -> 3.3, 2 -> 6.6, 3 -> 10
+                                  normalizedRating = (param.average / 3) * 10;
+                                  percentage = normalizedRating * 10;
+                                } else {
+                                  // 1-10 scale (default)
+                                  normalizedRating = param.average;
+                                  percentage = normalizedRating * 10;
+                                }
+
+                                const isGood = normalizedRating >= 7;
+                                const isMedium = normalizedRating >= 5;
+                                const displayValue = normalizedRating.toFixed(1);
+                                
+                                return (
+                                  <div key={param.id}>
+                                    <div className="flex items-start justify-between text-sm mb-1 gap-2">
+                                      <span className="text-gray-700 flex-1">
+                                        {idx + 1}. {param.text}
+                                      </span>
+                                      <span className={`font-semibold whitespace-nowrap ${
+                                        isGood ? 'text-green-600' :
+                                        isMedium ? 'text-yellow-600' : 'text-red-600'
+                                      }`}>
+                                        {displayValue}/10
+                                      </span>
+                                    </div>
+                                    <div className="w-full bg-gray-200 rounded-full h-2">
+                                      <div
+                                        className={`h-2 rounded-full ${
+                                          isGood ? 'bg-green-500' :
+                                          isMedium ? 'bg-yellow-500' : 'bg-red-500'
+                                        }`}
+                                        style={{ width: `${percentage}%` }}
+                                      />
+                                    </div>
                                   </div>
-                                  <div className="w-full bg-gray-200 rounded-full h-2">
-                                    <div
-                                      className={`h-2 rounded-full ${
-                                        param.average >= 7 ? 'bg-green-500' :
-                                        param.average >= 5 ? 'bg-yellow-500' : 'bg-red-500'
-                                      }`}
-                                      style={{ width: `${(param.average / 10) * 100}%` }}
-                                    />
-                                  </div>
-                                </div>
-                              ))}
+                                );
+                              })}
                             </div>
                           </div>
 

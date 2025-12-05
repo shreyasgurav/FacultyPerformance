@@ -22,6 +22,8 @@ interface FeedbackParameter {
   id: string;
   text: string;
   position: number;
+  form_type: string;
+  question_type: string;
 }
 
 interface FeedbackResponse {
@@ -66,18 +68,23 @@ export default function FeedbackFormPage({ params }: PageProps) {
   useEffect(() => {
     async function fetchData() {
       try {
-        const [formRes, paramsRes, studentsRes, responsesRes] = await Promise.all([
-          fetch(`/api/forms/${params.formId}`),
-          fetch('/api/feedback-parameters'),
-          fetch('/api/admin/students'),
-          fetch('/api/responses'),
-        ]);
-
+        // First fetch the form to determine if it's theory or lab
+        const formRes = await fetch(`/api/forms/${params.formId}`);
         let formData: FeedbackForm | null = null;
         if (formRes.ok) {
           formData = await formRes.json();
           setForm(formData);
         }
+
+        // Determine form type: if batch is set, it's a lab form; otherwise theory
+        const formType = formData?.batch ? 'lab' : 'theory';
+
+        // Fetch parameters based on form type, plus students and responses
+        const [paramsRes, studentsRes, responsesRes] = await Promise.all([
+          fetch(`/api/feedback-parameters?formType=${formType}`),
+          fetch('/api/admin/students'),
+          fetch('/api/responses'),
+        ]);
 
         if (paramsRes.ok) {
           const paramsData = await paramsRes.json();
@@ -96,7 +103,7 @@ export default function FeedbackFormPage({ params }: PageProps) {
           setResponses(allResponses);
         }
 
-        // Get student ID from URL or use first matching student
+        // Get student ID from URL - required for proper identification
         const urlStudentId = searchParams.get('studentId');
         let currentStudent: StudentRecord | undefined;
         
@@ -107,13 +114,10 @@ export default function FeedbackFormPage({ params }: PageProps) {
             r => r.form_id === params.formId && r.student_id === urlStudentId
           );
           setAlreadySubmitted(hasSubmitted);
-        } else if (allStudents.length > 0) {
-          setStudentId(allStudents[0].id);
-          currentStudent = allStudents[0];
-          const hasSubmitted = allResponses.some(
-            r => r.form_id === params.formId && r.student_id === allStudents[0].id
-          );
-          setAlreadySubmitted(hasSubmitted);
+        } else {
+          // No studentId in URL - redirect back to dashboard
+          setNotAuthorized(true);
+          return;
         }
 
         // Check if student is authorized to access this form
@@ -238,7 +242,7 @@ export default function FeedbackFormPage({ params }: PageProps) {
   const allParametersRated = parameters.every(p => ratings[p.id] !== undefined);
 
   return (
-    <div className="max-w-lg mx-auto px-4 py-6">
+    <div className="max-w-xl mx-auto px-5 py-8">
       {showToast && (
         <Toast
           message={toastMessage}
@@ -248,51 +252,148 @@ export default function FeedbackFormPage({ params }: PageProps) {
       )}
 
       {/* Header */}
-      <div className="mb-8 text-center">
-        <h1 className="text-lg font-semibold text-gray-900">{form.subject_name}</h1>
-        <p className="text-sm text-gray-500 mt-0.5">{form.faculty_name}</p>
+      <div className="mb-10 text-center">
+        <h1 className="text-xl font-bold text-gray-900">{form.faculty_name}</h1>
+        <p className="text-sm text-gray-500 mt-1">{form.subject_name}</p>
       </div>
 
       <form onSubmit={handleSubmit}>
 
         {/* Questions */}
-        <div className="space-y-8">
+        <div className="space-y-10">
           {parameters.map((param, index) => (
             <div key={param.id}>
-              <p className="text-sm text-gray-700 mb-3">
-                <span className="text-gray-400 mr-1">{index + 1}.</span> {param.text}
+              <p className="text-sm font-medium text-gray-900 mb-4 leading-relaxed">
+                <span className="text-gray-500 mr-1">{index + 1}.</span>
+                {param.text}
               </p>
-              <div className="grid grid-cols-11 gap-1">
-                {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(rating => (
-                  <button
-                    key={rating}
-                    type="button"
-                    onClick={() => handleRatingChange(param.id, rating)}
-                    className={`h-9 rounded-lg text-xs font-medium transition-all ${
-                      ratings[param.id] === rating
-                        ? 'bg-gray-900 text-white scale-105'
-                        : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                    }`}
-                  >
-                    {rating}
-                  </button>
-                ))}
-              </div>
+              
+              {/* Yes/No scale (for lab questions) */}
+              {param.question_type === 'yes_no' && (
+                <div className="flex gap-3 mt-4">
+                  {[
+                    { value: 1, label: 'Yes' },
+                    { value: 0, label: 'No' },
+                  ].map(option => {
+                    const isSelected = ratings[param.id] === option.value;
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => handleRatingChange(param.id, option.value)}
+                        className={`flex-1 py-3 px-4 rounded-xl text-sm font-medium transition-all border-2 ${
+                          isSelected
+                            ? option.value === 1
+                              ? 'bg-green-50 border-green-400 text-green-700'
+                              : 'bg-red-50 border-red-400 text-red-700'
+                            : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50'
+                        }`}
+                      >
+                        {option.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* 3-option scale (Need improvement, Satisfactory, Good) */}
+              {param.question_type === 'scale_3' && (
+                <div className="flex gap-3 mt-4">
+                  {[
+                    { value: 1, label: 'Need improvement', color: 'red' },
+                    { value: 2, label: 'Satisfactory', color: 'yellow' },
+                    { value: 3, label: 'Good', color: 'green' },
+                  ].map(option => {
+                    const isSelected = ratings[param.id] === option.value;
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => handleRatingChange(param.id, option.value)}
+                        className={`flex-1 py-3 px-4 rounded-xl text-sm font-medium transition-all border-2 ${
+                          isSelected
+                            ? option.color === 'red' 
+                              ? 'bg-red-50 border-red-400 text-red-700'
+                              : option.color === 'yellow'
+                              ? 'bg-amber-50 border-amber-400 text-amber-700'
+                              : 'bg-green-50 border-green-400 text-green-700'
+                            : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50'
+                        }`}
+                      >
+                        {option.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* 1-10 scale */}
+              {param.question_type === 'scale_1_10' && (
+                <div className="mt-4">
+                  <div className="flex justify-between text-xs text-gray-400 mb-2 px-1">
+                    <span>Poor</span>
+                    <span>Excellent</span>
+                  </div>
+                  <div className="grid grid-cols-10 gap-1.5">
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(rating => {
+                      const isSelected = ratings[param.id] === rating;
+                      return (
+                        <button
+                          key={rating}
+                          type="button"
+                          onClick={() => handleRatingChange(param.id, rating)}
+                          className={`h-11 rounded-lg text-sm font-semibold transition-all ${
+                            isSelected
+                              ? rating <= 3 
+                                ? 'bg-red-500 text-white shadow-md'
+                                : rating <= 6
+                                ? 'bg-amber-500 text-white shadow-md'
+                                : 'bg-green-500 text-white shadow-md'
+                              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                          }`}
+                        >
+                          {rating}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Fallback for old 0-10 scale (backwards compatibility) */}
+              {!param.question_type && (
+                <div className="grid grid-cols-11 gap-1.5 mt-4">
+                  {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(rating => (
+                    <button
+                      key={rating}
+                      type="button"
+                      onClick={() => handleRatingChange(param.id, rating)}
+                      className={`h-11 rounded-lg text-sm font-semibold transition-all ${
+                        ratings[param.id] === rating
+                          ? 'bg-gray-900 text-white shadow-md'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                    >
+                      {rating}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
         </div>
 
         {/* Comment */}
-        <div className="mt-10">
-          <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">
-            Comments (optional)
+        <div className="mt-10 pt-6 border-t border-gray-100">
+          <label className="block text-sm font-medium text-gray-900 mb-3">
+            Additional Comments <span className="text-gray-400 font-normal">(optional)</span>
           </label>
           <textarea
             value={comment}
             onChange={e => setComment(e.target.value)}
-            rows={3}
-            className="w-full px-4 py-3 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-gray-900 focus:border-gray-900 focus:bg-white resize-none transition-colors"
-            placeholder="Any additional feedback..."
+            rows={4}
+            className="w-full px-4 py-3 text-sm bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-gray-900 focus:border-gray-900 resize-none transition-colors placeholder:text-gray-400"
+            placeholder="Share any additional feedback about the faculty..."
           />
         </div>
 
@@ -300,7 +401,7 @@ export default function FeedbackFormPage({ params }: PageProps) {
         <button
           type="submit"
           disabled={!allParametersRated || isSubmitting}
-          className={`w-full mt-6 py-3 rounded-xl text-sm font-medium transition-all ${
+          className={`w-full mt-8 py-3.5 rounded-xl text-sm font-semibold transition-all ${
             allParametersRated && !isSubmitting
               ? 'bg-gray-900 text-white hover:bg-gray-800'
               : 'bg-gray-100 text-gray-400 cursor-not-allowed'

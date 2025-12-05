@@ -681,7 +681,7 @@ export default function UserManagementPage() {
               className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-1 focus:ring-gray-300 focus:border-gray-300 outline-none text-gray-600 bg-white"
             >
               <option value="">All Batches</option>
-              {['A1','A2','B1','B2','C1','C2','D1','D2'].map(b => (
+              {['A1','A2','A3','B1','B2','B3','C1','C2','C3','D1','D2','D3'].map(b => (
                 <option key={b} value={b}>{b}</option>
               ))}
             </select>
@@ -991,7 +991,7 @@ export default function UserManagementPage() {
                       onChange={e => setNewStudent({ ...newStudent, batch: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-1 focus:ring-gray-300 outline-none"
                     >
-                      {['A1', 'A2', 'B1', 'B2', 'C1', 'C2', 'D1', 'D2'].map(b => (
+                      {['A1', 'A2', 'A3', 'B1', 'B2', 'B3', 'C1', 'C2', 'C3', 'D1', 'D2', 'D3'].map(b => (
                         <option key={b} value={b}>{b}</option>
                       ))}
                     </select>
@@ -1221,7 +1221,7 @@ export default function UserManagementPage() {
                   onChange={e => setEditingStudent({ ...editingStudent, batch: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                 >
-                  {['A1', 'A2', 'B1', 'B2', 'C1', 'C2', 'D1', 'D2'].map(b => (
+                  {['A1', 'A2', 'A3', 'B1', 'B2', 'B3', 'C1', 'C2', 'C3', 'D1', 'D2', 'D3'].map(b => (
                     <option key={b} value={b}>{b}</option>
                   ))}
                 </select>

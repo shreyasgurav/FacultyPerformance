@@ -204,7 +204,7 @@ export default function StudentDashboardPage() {
                   <td className="py-3 px-4 text-sm text-gray-600">{form.division}{form.batch ? ` / ${form.batch}` : ''}</td>
                   <td className="py-3 px-5">
                     <Link
-                      href={`/student/feedback/${form.id}`}
+                      href={`/student/feedback/${form.id}?studentId=${currentStudentId}`}
                       className="inline-flex items-center px-3 py-1.5 bg-gray-900 text-white text-xs font-medium rounded-lg hover:bg-gray-800 transition-colors"
                     >
                       Fill Feedback

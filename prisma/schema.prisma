@@ -46,6 +46,8 @@ model feedback_parameters {
   id                      String                    @id @db.VarChar(50)
   text                    String                    @db.VarChar(255)
   position                Int
+  form_type               String                    @default("theory") @db.VarChar(20)
+  question_type           String                    @default("scale_1_10") @db.VarChar(30)
   feedback_response_items feedback_response_items[]
 }
 

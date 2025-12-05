@@ -68,16 +68,15 @@ export interface FeedbackResponse {
   submittedAt: string;
 }
 
-// Feedback Parameters (0-10 scale)
+// Feedback Parameters - Theory (Questions 1-6: 3-option scale, Question 7: 1-10 scale)
 export const feedbackParameters: FeedbackParameter[] = [
-  { id: 'p1', text: 'Punctuality' },
-  { id: 'p2', text: 'Clarity of explanation' },
-  { id: 'p3', text: 'Coverage of syllabus' },
-  { id: 'p4', text: 'Use of examples and applications' },
-  { id: 'p5', text: 'Interaction with students' },
-  { id: 'p6', text: 'Engagement during lectures/practicals' },
-  { id: 'p7', text: 'Availability for doubt clearing' },
-  { id: 'p8', text: 'Quality of study materials provided' },
+  { id: 'theory_1', text: 'Interaction with students regarding the subject taught and query-handling during lectures' },
+  { id: 'theory_2', text: 'Number of numerical problems solved/case studies and practical applications discussed' },
+  { id: 'theory_3', text: 'Audibility and overall command on verbal communication' },
+  { id: 'theory_4', text: 'Command on the subject taught' },
+  { id: 'theory_5', text: 'Use of audio/visuals aids (e.g. OHP slides, LCD projector, PA system, charts, models etc.)' },
+  { id: 'theory_6', text: 'Whether the test-syllabus was covered satisfactorily before the term tests?' },
+  { id: 'theory_7', text: 'Evaluation of the faculty in the scale of 1-10' },
 ];
 
 // Mock Data
