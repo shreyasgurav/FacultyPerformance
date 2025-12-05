@@ -35,7 +35,7 @@ model feedback_forms {
   faculty_email      String                @db.VarChar(150)
   division           String                @db.VarChar(10)
   batch              String?               @db.VarChar(10)
-  year               String                @db.VarChar(10)
+  semester           Int                   @db.TinyInt
   course             String                @default("IT") @db.VarChar(50)
   status             feedback_forms_status @default(active)
   created_at         DateTime?             @default(now()) @db.Timestamp(0)
@@ -71,7 +71,7 @@ model feedback_responses {
   feedback_forms          feedback_forms            @relation(fields: [form_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "feedback_responses_ibfk_1")
   students                students                  @relation(fields: [student_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "feedback_responses_ibfk_2")
 
-  @@unique([form_id, student_id], map: "unique_form_student") // Prevent duplicate submissions at DB level
+  @@unique([form_id, student_id], map: "unique_form_student")
   @@index([form_id], map: "form_id")
   @@index([student_id], map: "student_id")
 }
@@ -81,7 +81,7 @@ model students {
   name               String               @db.VarChar(100)
   email              String               @unique(map: "email") @db.VarChar(150)
   department_id      String               @db.VarChar(50)
-  year               students_year
+  semester           Int                  @db.TinyInt
   course             String               @default("IT") @db.VarChar(50)
   division           String               @db.VarChar(10)
   batch              String?              @db.VarChar(10)
@@ -121,13 +121,6 @@ enum users_role {
   student
   faculty
   admin
-}
-
-enum students_year {
-  ONE   @map("1")
-  TWO   @map("2")
-  THREE @map("3")
-  FOUR  @map("4")
 }
 
 enum feedback_forms_status {

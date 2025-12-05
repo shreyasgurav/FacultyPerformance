@@ -4,7 +4,7 @@ import Link from 'next/link';
 
 export default function Navbar() {
   return (
-    <nav className="relative flex h-14">
+    <nav className="relative flex h-12 sm:h-14">
       {/* Red section on left - matches image width */}
       <div className="hidden lg:block lg:w-[55%] bg-red-800" />
       {/* Darker red section on right */}

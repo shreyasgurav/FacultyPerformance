@@ -17,7 +17,7 @@ interface FormEntry {
   facultyName: string;
   facultyEmail: string;
   division: string;
-  year: string;
+  semester: string;
   course: string;
   batch?: string;
   formType: FormType;
@@ -25,7 +25,7 @@ interface FormEntry {
 
 export default function GenerateFormsPage() {
   const [formType, setFormType] = useState<FormType>('division');
-  const [selectedYear, setSelectedYear] = useState('');
+  const [selectedSemester, setSelectedSemester] = useState('');
   const [selectedCourse, setSelectedCourse] = useState('');
   const [selectedDivision, setSelectedDivision] = useState('');
   const [selectedBatch, setSelectedBatch] = useState('');
@@ -86,11 +86,15 @@ export default function GenerateFormsPage() {
   };
 
   const divisions = ['A', 'B', 'C', 'D'];
-  const years = [
-    { value: '1', label: 'First Year' },
-    { value: '2', label: 'Second Year' },
-    { value: '3', label: 'Third Year' },
-    { value: '4', label: 'Fourth Year' },
+  const semesters = [
+    { value: '1', label: 'Semester 1' },
+    { value: '2', label: 'Semester 2' },
+    { value: '3', label: 'Semester 3' },
+    { value: '4', label: 'Semester 4' },
+    { value: '5', label: 'Semester 5' },
+    { value: '6', label: 'Semester 6' },
+    { value: '7', label: 'Semester 7' },
+    { value: '8', label: 'Semester 8' },
   ];
   const courses = [
     { value: 'IT', label: 'Information Technology' },
@@ -112,7 +116,7 @@ export default function GenerateFormsPage() {
   };
 
   const canAddForm = () => {
-    if (!selectedYear || !selectedCourse || !selectedDivision || !subjectName.trim() || !selectedFacultyId) {
+    if (!selectedSemester || !selectedCourse || !selectedDivision || !subjectName.trim() || !selectedFacultyId) {
       return false;
     }
     if (formType === 'batch' && !selectedBatch) {
@@ -137,7 +141,7 @@ export default function GenerateFormsPage() {
     const isDuplicate = generatedForms.some(f =>
       f.subjectName.toLowerCase() === subjectName.toLowerCase().trim() &&
       f.facultyEmail.toLowerCase() === selectedFaculty.email.toLowerCase() &&
-      f.division === selectedDivision && f.year === selectedYear && f.course === selectedCourse &&
+      f.division === selectedDivision && f.semester === selectedSemester && f.course === selectedCourse &&
       (formType === 'division' ? !f.batch : f.batch === selectedBatch)
     );
 
@@ -152,7 +156,7 @@ export default function GenerateFormsPage() {
       facultyName: selectedFaculty.name,
       facultyEmail: selectedFaculty.email,
       division: selectedDivision,
-      year: selectedYear,
+      semester: selectedSemester,
       course: selectedCourse,
       formType,
       ...(formType === 'batch' && { batch: selectedBatch }),
@@ -241,20 +245,20 @@ export default function GenerateFormsPage() {
 
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">Year</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">Semester</label>
             <select
-              value={selectedYear}
-              onChange={(e) => setSelectedYear(e.target.value)}
+              value={selectedSemester}
+              onChange={(e) => setSelectedSemester(e.target.value)}
               className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition-colors"
             >
-              <option value="">Select year</option>
-              {years.map(y => (
-                <option key={y.value} value={y.value}>{y.label}</option>
+              <option value="">Select semester</option>
+              {semesters.map(s => (
+                <option key={s.value} value={s.value}>{s.label}</option>
               ))}
             </select>
           </div>
 
-          {selectedYear && (
+          {selectedSemester && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">Course</label>
               <select
@@ -399,7 +403,7 @@ export default function GenerateFormsPage() {
                     {form.subjectName}
                   </div>
                   <div className="text-xs text-gray-500 mt-0.5">
-                    {form.facultyName} • Year {form.year} • {getCourseName(form.course)} • Div {form.division}{form.batch && ` / ${form.batch}`}
+                    {form.facultyName} • Sem {form.semester} • {getCourseName(form.course)} • Div {form.division}{form.batch && ` / ${form.batch}`}
                   </div>
                 </div>
                 <button

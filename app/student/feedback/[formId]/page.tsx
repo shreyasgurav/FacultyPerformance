@@ -13,7 +13,7 @@ interface FeedbackForm {
   faculty_email: string;
   division: string;
   batch: string | null;
-  year: string;
+  semester: number;
   course: string;
   status: string;
 }
@@ -34,7 +34,8 @@ interface StudentRecord {
   id: string;
   name: string;
   email: string;
-  year: string;
+  semester: number;
+  year: number;
   course: string;
   division: string;
   batch: string;
@@ -118,7 +119,7 @@ export default function FeedbackFormPage({ params }: PageProps) {
         // Check if student is authorized to access this form
         if (formData && currentStudent) {
           const isAuthorized = 
-            formData.year === currentStudent.year &&
+            formData.semester === currentStudent.semester &&
             formData.course === currentStudent.course &&
             formData.division === currentStudent.division &&
             formData.status === 'active' &&

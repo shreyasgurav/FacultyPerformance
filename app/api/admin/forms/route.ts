@@ -70,10 +70,15 @@ export async function POST(request: NextRequest) {
     const createdForms = [];
 
     for (const form of forms) {
-      const { subjectName, subjectCode, facultyName, facultyEmail, division, batch, year, course } = form;
+      const { subjectName, subjectCode, facultyName, facultyEmail, division, batch, semester, course } = form;
 
-      if (!subjectName || !facultyName || !facultyEmail || !division || !year) {
+      if (!subjectName || !facultyName || !facultyEmail || !division || !semester) {
         continue; // Skip invalid entries
+      }
+
+      const semesterNum = parseInt(semester, 10);
+      if (isNaN(semesterNum) || semesterNum < 1 || semesterNum > 8) {
+        continue; // Skip invalid semester
       }
 
       const formId = `form_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -87,7 +92,7 @@ export async function POST(request: NextRequest) {
           faculty_email: facultyEmail.toLowerCase(),
           division,
           batch: batch || null,
-          year,
+          semester: semesterNum,
           course: course || 'IT',
           status: 'active',
         },

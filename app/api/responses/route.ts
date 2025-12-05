@@ -77,8 +77,9 @@ export async function POST(request: NextRequest) {
       }
 
       // Check if student is authorized to submit this form
+      // Compare semesters directly (both are now integers)
       const isAuthorized = 
-        form.year === (student.year === 'ONE' ? '1' : student.year === 'TWO' ? '2' : student.year === 'THREE' ? '3' : '4') &&
+        form.semester === student.semester &&
         form.course === student.course &&
         form.division === student.division &&
         form.status === 'active' &&

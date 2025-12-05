@@ -1,14 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-// Map year string to Prisma enum value
-function yearToEnum(year: string): 'ONE' | 'TWO' | 'THREE' | 'FOUR' {
-  switch (year) {
-    case '1': return 'ONE';
-    case '2': return 'TWO';
-    case '3': return 'THREE';
-    case '4': return 'FOUR';
-    default: return 'ONE';
-  }
+
+// Helper: Calculate year from semester (1-2 = Year 1, 3-4 = Year 2, etc.)
+function semesterToYear(semester: number): number {
+  return Math.ceil(semester / 2);
 }
 
 // GET all students
@@ -19,12 +14,13 @@ export async function GET() {
     });
     
     // Map to frontend format
-    const mapped = allStudents.map((s: { id: string; name: string; email: string; department_id: string; year: string; course: string; division: string; batch: string | null }) => ({
+    const mapped = allStudents.map((s: { id: string; name: string; email: string; department_id: string; semester: number; course: string; division: string; batch: string | null }) => ({
       id: s.id,
       name: s.name,
       email: s.email,
       departmentId: s.department_id,
-      year: s.year === 'ONE' ? '1' : s.year === 'TWO' ? '2' : s.year === 'THREE' ? '3' : '4',
+      semester: s.semester,
+      year: semesterToYear(s.semester),
       course: s.course,
       division: s.division,
       batch: s.batch || '',
@@ -41,10 +37,15 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { name, email, year, course, division, batch } = body;
+    const { name, email, semester, course, division, batch } = body;
 
-    if (!name || !email || !year || !division) {
+    if (!name || !email || !semester || !division) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    }
+
+    const semesterNum = parseInt(semester, 10);
+    if (isNaN(semesterNum) || semesterNum < 1 || semesterNum > 8) {
+      return NextResponse.json({ error: 'Semester must be between 1 and 8' }, { status: 400 });
     }
 
     // Check if email already exists
@@ -66,7 +67,7 @@ export async function POST(request: NextRequest) {
         name,
         email,
         department_id: 'dept1', // IT department
-        year: yearToEnum(year),
+        semester: semesterNum,
         course: course || 'IT',
         division,
         batch: batch || null,
@@ -90,7 +91,8 @@ export async function POST(request: NextRequest) {
       name: student.name,
       email: student.email,
       departmentId: student.department_id,
-      year,
+      semester: student.semester,
+      year: semesterToYear(student.semester),
       course: student.course,
       division: student.division,
       batch: student.batch || '',
@@ -99,6 +101,52 @@ export async function POST(request: NextRequest) {
   } catch (error: unknown) {
     console.error('Error creating student:', error);
     const message = error instanceof Error ? error.message : 'Failed to create student';
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
+
+// PUT update student details
+export async function PUT(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { id, semester, course, division, batch } = body;
+
+    if (!id) {
+      return NextResponse.json({ error: 'Missing student ID' }, { status: 400 });
+    }
+
+    const semesterNum = parseInt(semester, 10);
+    if (isNaN(semesterNum) || semesterNum < 1 || semesterNum > 8) {
+      return NextResponse.json({ error: 'Semester must be between 1 and 8' }, { status: 400 });
+    }
+
+    // Update student record
+    const student = await prisma.students.update({
+      where: { id },
+      data: {
+        semester: semesterNum,
+        course: course || 'IT',
+        division,
+        batch: batch || null,
+      },
+    });
+
+    // Return in frontend format
+    return NextResponse.json({
+      id: student.id,
+      name: student.name,
+      email: student.email,
+      departmentId: student.department_id,
+      semester: student.semester,
+      year: semesterToYear(student.semester),
+      course: student.course,
+      division: student.division,
+      batch: student.batch || '',
+    });
+
+  } catch (error: unknown) {
+    console.error('Error updating student:', error);
+    const message = error instanceof Error ? error.message : 'Failed to update student';
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

@@ -13,7 +13,7 @@ interface FeedbackForm {
   faculty_email: string;
   division: string;
   batch: string | null;
-  year: string;
+  semester: number;
   course: string;
   status: string;
 }
@@ -28,17 +28,21 @@ export default function FeedbackMonitoringPage() {
   const [forms, setForms] = useState<FeedbackForm[]>([]);
   const [responses, setResponses] = useState<FeedbackResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [yearFilter, setYearFilter] = useState('');
+  const [semesterFilter, setSemesterFilter] = useState('');
   const [courseFilter, setCourseFilter] = useState('');
   const [divisionFilter, setDivisionFilter] = useState('');
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
 
-  const years = [
-    { value: '1', label: 'First Year' },
-    { value: '2', label: 'Second Year' },
-    { value: '3', label: 'Third Year' },
-    { value: '4', label: 'Fourth Year' },
+  const semesters = [
+    { value: '1', label: 'Semester 1' },
+    { value: '2', label: 'Semester 2' },
+    { value: '3', label: 'Semester 3' },
+    { value: '4', label: 'Semester 4' },
+    { value: '5', label: 'Semester 5' },
+    { value: '6', label: 'Semester 6' },
+    { value: '7', label: 'Semester 7' },
+    { value: '8', label: 'Semester 8' },
   ];
 
   const courses = [
@@ -76,7 +80,7 @@ export default function FeedbackMonitoringPage() {
   const divisions = Array.from(new Set(forms.map(f => f.division)));
 
   const filteredForms = forms.filter(form => {
-    if (yearFilter && form.year !== yearFilter) return false;
+    if (semesterFilter && form.semester !== parseInt(semesterFilter)) return false;
     if (courseFilter && form.course !== courseFilter) return false;
     if (divisionFilter && form.division !== divisionFilter) return false;
     return true;
@@ -132,15 +136,15 @@ export default function FeedbackMonitoringPage() {
       <div className="bg-white rounded-2xl border border-gray-100 p-5 mb-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1.5">Year</label>
+            <label className="block text-xs font-medium text-gray-500 mb-1.5">Semester</label>
             <select
-              value={yearFilter}
-              onChange={e => setYearFilter(e.target.value)}
+              value={semesterFilter}
+              onChange={e => setSemesterFilter(e.target.value)}
               className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors"
             >
-              <option value="">All Years</option>
-              {years.map(y => (
-                <option key={y.value} value={y.value}>{y.label}</option>
+              <option value="">All Semesters</option>
+              {semesters.map(s => (
+                <option key={s.value} value={s.value}>{s.label}</option>
               ))}
             </select>
           </div>
@@ -189,7 +193,7 @@ export default function FeedbackMonitoringPage() {
                 <tr className="border-b border-gray-100">
                   <th className="text-left py-3 px-6 text-xs font-medium text-gray-400 uppercase tracking-wider">Subject</th>
                   <th className="text-left py-3 px-4 text-xs font-medium text-gray-400 uppercase tracking-wider">Faculty</th>
-                  <th className="text-left py-3 px-4 text-xs font-medium text-gray-400 uppercase tracking-wider">Year/Course</th>
+                  <th className="text-left py-3 px-4 text-xs font-medium text-gray-400 uppercase tracking-wider">Sem/Course</th>
                   <th className="text-left py-3 px-4 text-xs font-medium text-gray-400 uppercase tracking-wider">Division</th>
                   <th className="text-left py-3 px-4 text-xs font-medium text-gray-400 uppercase tracking-wider">Responses</th>
                   <th className="text-left py-3 px-6 text-xs font-medium text-gray-400 uppercase tracking-wider">Action</th>
@@ -207,7 +211,7 @@ export default function FeedbackMonitoringPage() {
                       </td>
                       <td className="py-3 px-4 text-sm text-gray-600">{form.faculty_name}</td>
                       <td className="py-3 px-4 text-sm text-gray-600">
-                        Year {form.year} · {form.course === 'AIDS' ? 'AI&DS' : 'IT'}
+                        Sem {form.semester} · {form.course === 'AIDS' ? 'AI&DS' : 'IT'}
                       </td>
                       <td className="py-3 px-4 text-sm text-gray-600">
                         {form.division}{form.batch ? ` / ${form.batch}` : ''}

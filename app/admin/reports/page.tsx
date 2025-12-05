@@ -12,7 +12,7 @@ interface FeedbackForm {
   faculty_email: string;
   division: string;
   batch: string | null;
-  year: string;
+  semester: number;
   course: string;
   status: string;
 }
@@ -308,7 +308,7 @@ export default function ReportsPage() {
                             <div>
                               <p className="font-medium text-gray-900">{form.subject_name}</p>
                               <p className="text-xs text-gray-500">
-                                Year {form.year} · {form.course === 'AIDS' ? 'AI & DS' : 'IT'} · Div {form.division}{form.batch ? ` / ${form.batch}` : ''}
+                                Sem {form.semester} · {form.course === 'AIDS' ? 'AI & DS' : 'IT'} · Div {form.division}{form.batch ? ` / ${form.batch}` : ''}
                               </p>
                             </div>
                             <div className="flex items-center gap-4">
@@ -352,7 +352,7 @@ export default function ReportsPage() {
                         <div className="flex-1">
                           <h4 className="font-semibold text-gray-900">{form.subject_name}</h4>
                           <p className="text-xs text-gray-500">
-                            Year {form.year} · {form.course === 'AIDS' ? 'AI & DS' : 'IT'} · Div {form.division}{form.batch ? ` / ${form.batch}` : ''}
+                            Sem {form.semester} · {form.course === 'AIDS' ? 'AI & DS' : 'IT'} · Div {form.division}{form.batch ? ` / ${form.batch}` : ''}
                           </p>
                         </div>
                         <div className="text-right">

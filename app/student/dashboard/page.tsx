@@ -7,7 +7,8 @@ interface StudentRecord {
   id: string;
   name: string;
   email: string;
-  year: string;
+  semester: number;
+  year: number;
   course: string;
   division: string;
   batch: string;
@@ -21,7 +22,7 @@ interface FeedbackForm {
   faculty_email: string;
   division: string;
   batch: string | null;
-  year: string;
+  semester: number;
   course: string;
   status: string;
 }
@@ -79,9 +80,9 @@ export default function StudentDashboardPage() {
 
   const student = students.find(s => s.id === currentStudentId) || null;
   
-  // Filter forms for this student's year, course, division
+  // Filter forms for this student's semester, course, division
   const studentForms = student ? forms.filter(f => 
-    f.year === student.year &&
+    f.semester === student.semester &&
     f.course === student.course &&
     f.division === student.division &&
     f.status === 'active' &&
@@ -164,8 +165,8 @@ export default function StudentDashboardPage() {
                     <span className="font-medium text-gray-900 text-right">{student.course === 'AIDS' ? 'AI & DS' : 'IT'}</span>
                   </div>
                   <div className="flex justify-between gap-2">
-                    <span className="text-gray-400">Year / Division</span>
-                    <span className="font-medium text-gray-900 text-right">Year {student.year} · Div {student.division}</span>
+                    <span className="text-gray-400">Semester / Division</span>
+                    <span className="font-medium text-gray-900 text-right">Sem {student.semester} · Div {student.division}</span>
                   </div>
                   {student.batch && (
                     <div className="flex justify-between gap-2">
