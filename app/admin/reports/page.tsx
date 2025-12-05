@@ -41,6 +41,9 @@ export default function ReportsPage() {
   const [parameters, setParameters] = useState<FeedbackParameter[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('');
+  
   // Selected faculty for detailed view
   const [selectedFacultyEmail, setSelectedFacultyEmail] = useState<string | null>(null);
   // Selected subject within faculty popup
@@ -155,6 +158,12 @@ export default function ReportsPage() {
     return statsB.avgRating - statsA.avgRating; // Highest to lowest
   });
 
+  // Filtered faculty list based on search
+  const filteredFacultyList = facultyList.filter(fac => 
+    fac.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    fac.email.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   // Get forms for selected faculty
   const selectedFacultyForms = selectedFacultyEmail 
     ? forms.filter(f => f.faculty_email.toLowerCase() === selectedFacultyEmail.toLowerCase())
@@ -182,17 +191,45 @@ export default function ReportsPage() {
 
       {/* Faculty Table */}
       <div className="bg-white rounded-2xl border border-gray-100 p-6">
-        <h2 className="text-base font-semibold text-gray-900 mb-4">
-          Faculty Members ({facultyList.length})
-        </h2>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+          <h2 className="text-base font-semibold text-gray-900">
+            Faculty Members ({filteredFacultyList.length})
+          </h2>
+          {/* Search */}
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1 min-w-[200px] max-w-xs">
+              <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              <input
+                type="text"
+                placeholder="Search faculty..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-1 focus:ring-gray-300 focus:border-gray-300 outline-none"
+              />
+            </div>
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="text-xs text-gray-400 hover:text-gray-600"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+        </div>
         {facultyList.length === 0 ? (
           <p className="text-gray-400 text-center text-sm py-8">No faculty with feedback forms found.</p>
+        ) : filteredFacultyList.length === 0 ? (
+          <p className="text-gray-400 text-center text-sm py-8">No faculty match your search.</p>
         ) : (
           <div className="overflow-x-auto -mx-6">
             <table className="w-full min-w-[600px]">
               <thead>
                 <tr className="border-b border-gray-100">
-                  <th className="text-left py-3 px-6 text-xs font-medium text-gray-400 uppercase tracking-wider">Faculty Name</th>
+                  <th className="text-left py-3 px-6 text-xs font-medium text-gray-400 uppercase tracking-wider w-12">#</th>
+                  <th className="text-left py-3 px-4 text-xs font-medium text-gray-400 uppercase tracking-wider">Faculty Name</th>
                   <th className="text-left py-3 px-4 text-xs font-medium text-gray-400 uppercase tracking-wider">Email</th>
                   <th className="text-left py-3 px-4 text-xs font-medium text-gray-400 uppercase tracking-wider">Subjects</th>
                   <th className="text-left py-3 px-4 text-xs font-medium text-gray-400 uppercase tracking-wider">Avg Rating</th>
@@ -200,12 +237,25 @@ export default function ReportsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {facultyList.map(fac => {
+                {filteredFacultyList.map((fac, index) => {
                   const stats = getFacultyStats(fac.email);
+                  
+                  // Get original rank (position in sorted list)
+                  const originalRank = facultyList.findIndex(f => f.email === fac.email) + 1;
                   
                   return (
                     <tr key={fac.email} className="hover:bg-gray-50/50 transition-colors">
                       <td className="py-3 px-6">
+                        <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-semibold ${
+                          originalRank === 1 ? 'bg-yellow-100 text-yellow-700' :
+                          originalRank === 2 ? 'bg-gray-200 text-gray-700' :
+                          originalRank === 3 ? 'bg-orange-100 text-orange-700' :
+                          'bg-gray-100 text-gray-500'
+                        }`}>
+                          {originalRank}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4">
                         <p className="text-sm font-medium text-gray-900">{fac.name}</p>
                       </td>
                       <td className="py-3 px-4 text-sm text-gray-600">{fac.email}</td>
@@ -267,34 +317,12 @@ export default function ReportsPage() {
             </div>
 
             {/* Modal Body */}
-            <div className="px-6 py-5 overflow-y-auto max-h-[calc(90vh-120px)]">
-              {/* Summary stats */}
-              <div className="flex items-center gap-6 mb-6 pb-4 border-b border-gray-100">
-                <div>
-                  <p className="text-sm text-gray-500">Total Subjects</p>
-                  <p className="text-2xl font-bold text-gray-900">{selectedFacultyOverallStats.formCount}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">Total Responses</p>
-                  <p className="text-2xl font-bold text-gray-900">{selectedFacultyOverallStats.responseCount}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">Overall Avg Rating</p>
-                  <p className={`text-2xl font-bold ${
-                    selectedFacultyOverallStats.avgRating >= 7 ? 'text-green-600' :
-                    selectedFacultyOverallStats.avgRating >= 5 ? 'text-yellow-600' : 
-                    selectedFacultyOverallStats.avgRating > 0 ? 'text-red-600' : 'text-gray-400'
-                  }`}>
-                    {selectedFacultyOverallStats.avgRating > 0 ? selectedFacultyOverallStats.avgRating.toFixed(1) : '-'}/10
-                  </p>
-                </div>
-              </div>
-
+            <div className="px-6 py-5 overflow-y-auto max-h-[calc(90vh-80px)]">
               {/* Subject-wise breakdown */}
               {!selectedSubjectFormId ? (
                 <>
-                  <h4 className="text-sm font-semibold text-gray-700 mb-3">Subject-wise Breakdown</h4>
-                  <div className="space-y-2">
+                  <h4 className="text-sm font-semibold text-gray-700 mb-3">Subjects ({selectedFacultyForms.length})</h4>
+                  <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
                     {selectedFacultyForms.map(form => {
                       const stats = getFormStats(form.id);
 
@@ -374,7 +402,7 @@ export default function ReportsPage() {
                           {/* Question-wise averages */}
                           <div>
                             <p className="text-sm font-semibold text-gray-700 mb-3">Question-wise Ratings</p>
-                            <div className="space-y-3">
+                            <div className="space-y-3 max-h-64 overflow-y-auto pr-1">
                               {stats.parameterAverages.map((param, idx) => (
                                 <div key={param.id}>
                                   <div className="flex items-center justify-between text-sm mb-1">
