@@ -166,6 +166,20 @@ export async function DELETE(request: NextRequest) {
       where: { student_id: id },
     });
 
+    // Get all feedback response IDs for this student
+    const studentResponses = await prisma.feedback_responses.findMany({
+      where: { student_id: id },
+      select: { id: true },
+    });
+    const responseIds = studentResponses.map(r => r.id);
+
+    // Delete feedback response items first (child records)
+    if (responseIds.length > 0) {
+      await prisma.feedback_response_items.deleteMany({
+        where: { response_id: { in: responseIds } },
+      });
+    }
+
     // Delete feedback responses for this student
     await prisma.feedback_responses.deleteMany({
       where: { student_id: id },

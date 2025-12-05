@@ -3,7 +3,7 @@ import Image from 'next/image';
 
 export default function HomePage() {
   return (
-    <div className="min-h-[calc(100vh-48px)] sm:min-h-[calc(100vh-56px)] flex overflow-hidden">
+    <div className="min-h-[calc(100vh-48px)] sm:min-h-[calc(100vh-56px)] flex overflow-x-hidden">
       {/* Left Side - Campus Image */}
       <div className="hidden lg:block lg:w-[55%] relative">
         <Image
@@ -20,20 +20,13 @@ export default function HomePage() {
         <div className="flex-1 flex flex-col items-center justify-center px-4 sm:px-6 md:px-8">
           {/* Logo/Title Section */}
           <div className="text-center mb-2 sm:mb-4">
-            <div className="flex flex-row items-center justify-center gap-3 sm:gap-6 md:gap-10 mb-2 sm:mb-3">
+            <div className="flex flex-row items-center justify-center mb-2 sm:mb-3">
               <Image
-                src="/somaiyalogo.png"
-                alt="Somaiya Logo"
-                width={180}
-                height={180}
-                className="object-contain w-[72px] sm:w-28 md:w-36 lg:w-44 h-auto"
-              />
-              <Image
-                src="/kjscelogo.png"
-                alt="KJSCE Logo"
-                width={180}
-                height={180}
-                className="object-contain w-[60px] sm:w-24 md:w-32 lg:w-40 h-auto"
+                src="/SomaiyaLogos.png"
+                alt="Somaiya Logos"
+                width={800}
+                height={124}
+                className="object-contain w-[280px] sm:w-[340px] md:w-[400px] lg:w-[480px] h-auto"
               />
             </div>
           </div>
