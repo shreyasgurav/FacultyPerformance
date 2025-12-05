@@ -4,22 +4,13 @@ import Link from 'next/link';
 
 export default function Navbar() {
   return (
-    <nav className="bg-gradient-to-r from-red-600 via-red-600 to-red-700 px-4 py-3 shadow-md">
-      <div className="max-w-7xl mx-auto flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-white/20 flex items-center justify-center">
-            <span className="text-white font-bold text-lg">FC</span>
-          </div>
-          <div className="hidden sm:block">
-            <span className="text-lg font-semibold text-white">
-              Faculty Curriculum Performance
-            </span>
-            <span className="text-sm text-red-100 block -mt-1">
-              Feedback Automation System
-            </span>
-          </div>
-        </Link>
-      </div>
+    <nav className="relative flex h-14">
+      {/* Red section on left - matches image width */}
+      <div className="hidden lg:block lg:w-[55%] bg-red-800" />
+      {/* Darker red section on right */}
+      <div className="w-full lg:w-[45%] bg-red-900" />
+      {/* Red tab extending down from right - hidden on mobile */}
+      <div className="hidden lg:block absolute top-0 right-0 w-32 h-24 bg-red-900" />
     </nav>
   );
 }

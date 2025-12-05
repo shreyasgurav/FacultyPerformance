@@ -60,6 +60,7 @@ export default function FeedbackFormPage({ params }: PageProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [studentId, setStudentId] = useState<string | null>(null);
   const [alreadySubmitted, setAlreadySubmitted] = useState(false);
+  const [notAuthorized, setNotAuthorized] = useState(false);
 
   useEffect(() => {
     async function fetchData() {
@@ -71,8 +72,9 @@ export default function FeedbackFormPage({ params }: PageProps) {
           fetch('/api/responses'),
         ]);
 
+        let formData: FeedbackForm | null = null;
         if (formRes.ok) {
-          const formData = await formRes.json();
+          formData = await formRes.json();
           setForm(formData);
         }
 
@@ -95,18 +97,36 @@ export default function FeedbackFormPage({ params }: PageProps) {
 
         // Get student ID from URL or use first matching student
         const urlStudentId = searchParams.get('studentId');
+        let currentStudent: StudentRecord | undefined;
+        
         if (urlStudentId && allStudents.find(s => s.id === urlStudentId)) {
           setStudentId(urlStudentId);
+          currentStudent = allStudents.find(s => s.id === urlStudentId);
           const hasSubmitted = allResponses.some(
             r => r.form_id === params.formId && r.student_id === urlStudentId
           );
           setAlreadySubmitted(hasSubmitted);
         } else if (allStudents.length > 0) {
           setStudentId(allStudents[0].id);
+          currentStudent = allStudents[0];
           const hasSubmitted = allResponses.some(
             r => r.form_id === params.formId && r.student_id === allStudents[0].id
           );
           setAlreadySubmitted(hasSubmitted);
+        }
+
+        // Check if student is authorized to access this form
+        if (formData && currentStudent) {
+          const isAuthorized = 
+            formData.year === currentStudent.year &&
+            formData.course === currentStudent.course &&
+            formData.division === currentStudent.division &&
+            formData.status === 'active' &&
+            (!formData.batch || formData.batch === currentStudent.batch);
+          
+          if (!isAuthorized) {
+            setNotAuthorized(true);
+          }
         }
       } catch (error) {
         console.error('Error loading data:', error);
@@ -173,11 +193,21 @@ export default function FeedbackFormPage({ params }: PageProps) {
     return <div className="p-6 text-gray-500">Loading...</div>;
   }
 
-  if (!form) {
+  if (!form || notAuthorized) {
     return (
       <div className="max-w-md mx-auto px-4 py-12 text-center">
         <div className="bg-white rounded-2xl border border-gray-100 p-8">
-          <p className="text-sm text-gray-500 mb-4">Form not found.</p>
+          <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </div>
+          <p className="text-sm text-gray-600 mb-4">
+            {notAuthorized 
+              ? "You are not authorized to access this form. This form is for a different class/division."
+              : "Form not found."
+            }
+          </p>
           <Link href="/student/dashboard" className="text-sm text-blue-600 hover:text-blue-800 font-medium">
             ← Back to Dashboard
           </Link>

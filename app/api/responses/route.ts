@@ -60,6 +60,34 @@ export async function POST(request: NextRequest) {
 
     // Use transaction for atomicity - all or nothing
     const result = await prisma.$transaction(async (tx) => {
+      // Verify student exists and get their details
+      const student = await tx.students.findUnique({
+        where: { id: studentId },
+      });
+      if (!student) {
+        throw new Error('STUDENT_NOT_FOUND');
+      }
+
+      // Verify form exists and get its details
+      const form = await tx.feedback_forms.findUnique({
+        where: { id: formId },
+      });
+      if (!form) {
+        throw new Error('FORM_NOT_FOUND');
+      }
+
+      // Check if student is authorized to submit this form
+      const isAuthorized = 
+        form.year === (student.year === 'ONE' ? '1' : student.year === 'TWO' ? '2' : student.year === 'THREE' ? '3' : '4') &&
+        form.course === student.course &&
+        form.division === student.division &&
+        form.status === 'active' &&
+        (!form.batch || form.batch === student.batch);
+
+      if (!isAuthorized) {
+        throw new Error('NOT_AUTHORIZED');
+      }
+
       // Check for duplicate submission within transaction (with row lock)
       const existing = await tx.feedback_responses.findFirst({
         where: { form_id: formId, student_id: studentId },
@@ -107,6 +135,15 @@ export async function POST(request: NextRequest) {
     if (error instanceof Error) {
       if (error.message === 'DUPLICATE_SUBMISSION') {
         return NextResponse.json({ error: 'You have already submitted feedback for this form' }, { status: 409 });
+      }
+      if (error.message === 'NOT_AUTHORIZED') {
+        return NextResponse.json({ error: 'You are not authorized to submit this form. This form is for a different class/division.' }, { status: 403 });
+      }
+      if (error.message === 'STUDENT_NOT_FOUND') {
+        return NextResponse.json({ error: 'Student not found' }, { status: 404 });
+      }
+      if (error.message === 'FORM_NOT_FOUND') {
+        return NextResponse.json({ error: 'Form not found' }, { status: 404 });
       }
       // Handle unique constraint violation (race condition fallback)
       if (error.message.includes('Unique constraint')) {
