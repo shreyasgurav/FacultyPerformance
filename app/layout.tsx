@@ -5,6 +5,9 @@ import Navbar from '@/components/Navbar';
 export const metadata: Metadata = {
   title: 'Faculty Feedback System',
   description: 'Web portal to manage faculty feedback from students',
+  icons: {
+    icon: '/somaiyatitlelogo.png',
+  },
 };
 
 export default function RootLayout({

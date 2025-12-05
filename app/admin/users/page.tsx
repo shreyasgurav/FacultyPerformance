@@ -42,6 +42,7 @@ export default function UserManagementPage() {
 
   const [localStudents, setLocalStudents] = useState<Student[]>([]);
   const [localFaculty, setLocalFaculty] = useState<Faculty[]>([]);
+  const [openStudentMenuId, setOpenStudentMenuId] = useState<string | null>(null);
 
   // Fetch students and faculty from DB on mount
   useEffect(() => {
@@ -90,12 +91,13 @@ export default function UserManagementPage() {
   const [facultyEmailError, setFacultyEmailError] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [showCSVPreviewModal, setShowCSVPreviewModal] = useState(false);
-  const [csvStudents, setCsvStudents] = useState<{ name: string; email: string; semester: string; division: string; batch: string; selected: boolean; exists: boolean }[]>([]);
+  const [csvStudents, setCsvStudents] = useState<{ name: string; email: string; semester: string; course: string; division: string; batch: string; selected: boolean; exists: boolean }[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Search and filter state - Students
   const [searchQuery, setSearchQuery] = useState('');
   const [filterSemester, setFilterSemester] = useState('');
+  const [filterCourse, setFilterCourse] = useState('');
   const [filterDivision, setFilterDivision] = useState('');
   const [filterBatch, setFilterBatch] = useState('');
 
@@ -110,9 +112,10 @@ export default function UserManagementPage() {
     const matchesSearch = student.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           student.email.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesSemester = !filterSemester || student.semester.toString() === filterSemester;
+    const matchesCourse = !filterCourse || student.course === filterCourse;
     const matchesDivision = !filterDivision || student.division === filterDivision;
     const matchesBatch = !filterBatch || student.batch === filterBatch;
-    return matchesSearch && matchesSemester && matchesDivision && matchesBatch;
+    return matchesSearch && matchesSemester && matchesCourse && matchesDivision && matchesBatch;
   });
 
   // Filtered faculty
@@ -128,7 +131,7 @@ export default function UserManagementPage() {
   };
 
   // Parse CSV file
-  const parseCSV = (text: string): { name: string; email: string; semester: string; division: string; batch: string }[] => {
+  const parseCSV = (text: string): { name: string; email: string; semester: string; course: string; division: string; batch: string }[] => {
     const lines = text.trim().split('\n');
     if (lines.length < 2) return [];
     
@@ -136,11 +139,12 @@ export default function UserManagementPage() {
     const nameIdx = headers.indexOf('name');
     const emailIdx = headers.indexOf('email');
     const semesterIdx = headers.indexOf('semester');
+    const courseIdx = headers.indexOf('course');
     const divisionIdx = headers.indexOf('division');
     const batchIdx = headers.indexOf('batch');
     
     if (nameIdx === -1 || emailIdx === -1 || semesterIdx === -1 || divisionIdx === -1) {
-      throw new Error('CSV must have columns: name, email, semester, division, batch');
+      throw new Error('CSV must have columns: name, email, semester, course, division, batch');
     }
     
     const students = [];
@@ -148,10 +152,19 @@ export default function UserManagementPage() {
       const values = lines[i].split(',').map(v => v.trim());
       if (values.length < 4) continue;
       
+      // Parse course - accept IT, AIDS, or full names
+      let course = courseIdx !== -1 ? values[courseIdx] || 'IT' : 'IT';
+      if (course.toLowerCase().includes('ai') || course.toLowerCase().includes('data')) {
+        course = 'AIDS';
+      } else {
+        course = 'IT';
+      }
+      
       students.push({
         name: values[nameIdx] || '',
         email: values[emailIdx] || '',
         semester: values[semesterIdx] || '1',
+        course: course,
         division: values[divisionIdx] || 'A',
         batch: batchIdx !== -1 ? values[batchIdx] || '' : '',
       });
@@ -232,10 +245,7 @@ export default function UserManagementPage() {
         const res = await fetch('/api/admin/students', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            ...student,
-            course: 'IT', // Default course
-          }),
+          body: JSON.stringify(student),
         });
         
         if (res.ok) {
@@ -601,39 +611,16 @@ export default function UserManagementPage() {
       {/* Students Tab */}
       {!isLoading && activeTab === 'students' && (
         <div className="bg-white rounded-2xl border border-gray-100 p-6">
-          {/* Header with title and action buttons */}
+          {/* Header with title and action button */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
             <h2 className="text-base font-semibold text-gray-900">Students</h2>
-            <div className="flex flex-wrap items-center gap-2">
-              {/* CSV Upload */}
-              <div className="relative">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".csv"
-                  onChange={handleCSVUpload}
-                  className="hidden"
-                  id="csv-upload"
-                />
-                <label
-                  htmlFor="csv-upload"
-                  className={`inline-flex items-center px-3 py-1.5 border border-gray-200 text-gray-600 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors cursor-pointer ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}
-                >
-                  <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                  </svg>
-                  {isUploading ? 'Importing...' : 'Import CSV'}
-                </label>
-              </div>
-              {/* Add Student Button */}
-              <button
-                onClick={() => setShowStudentModal(true)}
-                className="inline-flex items-center px-3 py-1.5 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors"
-              >
-                <PlusIcon className="w-4 h-4 mr-1.5" />
-                Add Student
-              </button>
-            </div>
+            <button
+              onClick={() => setShowStudentModal(true)}
+              className="inline-flex items-center px-3 py-1.5 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors"
+            >
+              <PlusIcon className="w-4 h-4 mr-1.5" />
+              Add Student
+            </button>
           </div>
 
           {/* Search and Filters */}
@@ -652,6 +639,17 @@ export default function UserManagementPage() {
               />
             </div>
             
+            {/* Course Filter */}
+            <select
+              value={filterCourse}
+              onChange={e => setFilterCourse(e.target.value)}
+              className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-1 focus:ring-gray-300 focus:border-gray-300 outline-none text-gray-600 bg-white"
+            >
+              <option value="">All Courses</option>
+              <option value="IT">IT</option>
+              <option value="AIDS">AI & DS</option>
+            </select>
+
             {/* Semester Filter */}
             <select
               value={filterSemester}
@@ -689,9 +687,9 @@ export default function UserManagementPage() {
             </select>
 
             {/* Clear Filters */}
-            {(searchQuery || filterSemester || filterDivision || filterBatch) && (
+            {(searchQuery || filterCourse || filterSemester || filterDivision || filterBatch) && (
               <button
-                onClick={() => { setSearchQuery(''); setFilterSemester(''); setFilterDivision(''); setFilterBatch(''); }}
+                onClick={() => { setSearchQuery(''); setFilterCourse(''); setFilterSemester(''); setFilterDivision(''); setFilterBatch(''); }}
                 className="text-xs text-gray-400 hover:text-gray-600"
               >
                 Clear
@@ -700,11 +698,12 @@ export default function UserManagementPage() {
           </div>
 
           <div className="overflow-x-auto -mx-6">
-            <table className="w-full min-w-[600px]">
+            <table className="w-full min-w-[700px]">
               <thead>
                 <tr className="border-b border-gray-100">
                   <th className="text-left py-3 px-6 text-xs font-medium text-gray-400 uppercase tracking-wider">Name</th>
                   <th className="text-left py-3 px-4 text-xs font-medium text-gray-400 uppercase tracking-wider">Email</th>
+                  <th className="text-left py-3 px-4 text-xs font-medium text-gray-400 uppercase tracking-wider">Course</th>
                   <th className="text-left py-3 px-4 text-xs font-medium text-gray-400 uppercase tracking-wider">Semester</th>
                   <th className="text-left py-3 px-4 text-xs font-medium text-gray-400 uppercase tracking-wider">Division</th>
                   <th className="text-left py-3 px-4 text-xs font-medium text-gray-400 uppercase tracking-wider">Batch</th>
@@ -716,22 +715,45 @@ export default function UserManagementPage() {
                   <tr key={student.id} className="hover:bg-gray-50/50 transition-colors">
                     <td className="py-3 px-6 text-sm font-medium text-gray-900">{student.name}</td>
                     <td className="py-3 px-4 text-sm text-gray-600">{student.email}</td>
+                    <td className="py-3 px-4 text-sm text-gray-600">{student.course === 'AIDS' ? 'AI & DS' : 'IT'}</td>
                     <td className="py-3 px-4 text-sm text-gray-600">Sem {student.semester}</td>
                     <td className="py-3 px-4 text-sm text-gray-600">{student.division}</td>
                     <td className="py-3 px-4 text-sm text-gray-600">{student.batch || '-'}</td>
-                    <td className="py-3 px-6 flex gap-2">
-                      <button
-                        onClick={() => handleEditStudent(student)}
-                        className="text-blue-500 hover:text-blue-700 text-xs font-medium"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => handleDeleteStudent(student.id)}
-                        className="text-red-500 hover:text-red-700 text-xs font-medium"
-                      >
-                        Delete
-                      </button>
+                    <td className="py-3 px-6 text-sm text-gray-500">
+                      <div className="relative inline-block text-left">
+                        <button
+                          type="button"
+                          onClick={() => setOpenStudentMenuId(openStudentMenuId === student.id ? null : student.id)}
+                          className="p-1.5 rounded-full hover:bg-gray-100 text-gray-500 focus:outline-none"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.75a1.25 1.25 0 110-2.5 1.25 1.25 0 010 2.5zm0 6a1.25 1.25 0 110-2.5 1.25 1.25 0 010 2.5zm0 6a1.25 1.25 0 110-2.5 1.25 1.25 0 010 2.5z" />
+                          </svg>
+                        </button>
+
+                        {openStudentMenuId === student.id && (
+                          <div className="absolute right-0 mt-1 w-28 bg-white border border-gray-100 rounded-lg shadow-lg z-10">
+                            <button
+                              onClick={() => {
+                                setOpenStudentMenuId(null);
+                                handleEditStudent(student);
+                              }}
+                              className="w-full px-3 py-1.5 text-left text-xs text-gray-700 hover:bg-gray-50"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => {
+                                setOpenStudentMenuId(null);
+                                handleDeleteStudent(student.id);
+                              }}
+                              className="w-full px-3 py-1.5 text-left text-xs text-red-600 hover:bg-red-50"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -750,39 +772,16 @@ export default function UserManagementPage() {
       {/* Faculty Tab */}
       {!isLoading && activeTab === 'faculty' && (
         <div className="bg-white rounded-2xl border border-gray-100 p-6">
-          {/* Header with title and action buttons */}
+          {/* Header with title and action button */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
             <h2 className="text-base font-semibold text-gray-900">Faculty</h2>
-            <div className="flex flex-wrap items-center gap-2">
-              {/* CSV Upload */}
-              <div className="relative">
-                <input
-                  ref={facultyFileInputRef}
-                  type="file"
-                  accept=".csv"
-                  onChange={handleFacultyCSVUpload}
-                  className="hidden"
-                  id="faculty-csv-upload"
-                />
-                <label
-                  htmlFor="faculty-csv-upload"
-                  className={`inline-flex items-center px-3 py-1.5 border border-gray-200 text-gray-600 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors cursor-pointer ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}
-                >
-                  <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                  </svg>
-                  {isUploading ? 'Importing...' : 'Import CSV'}
-                </label>
-              </div>
-              {/* Add Faculty Button */}
-              <button
-                onClick={() => setShowFacultyModal(true)}
-                className="inline-flex items-center px-3 py-1.5 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors"
-              >
-                <PlusIcon className="w-4 h-4 mr-1.5" />
-                Add Faculty
-              </button>
-            </div>
+            <button
+              onClick={() => setShowFacultyModal(true)}
+              className="inline-flex items-center px-3 py-1.5 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors"
+            >
+              <PlusIcon className="w-4 h-4 mr-1.5" />
+              Add Faculty
+            </button>
           </div>
 
           {/* Search */}
@@ -850,152 +849,305 @@ export default function UserManagementPage() {
       )}
 
       {/* Add Student Modal */}
-      <Modal isOpen={showStudentModal} onClose={() => setShowStudentModal(false)} title="Add Student">
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
-            <input
-              type="text"
-              value={newStudent.name}
-              onChange={e => setNewStudent({ ...newStudent, name: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              placeholder="Enter student name"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-            <div className="relative">
-              <input
-                type="email"
-                value={newStudent.email}
-                onChange={e => {
-                  setNewStudent({ ...newStudent, email: e.target.value });
-                  if (studentEmailError) setStudentEmailError('');
-                }}
-                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
-                  studentEmailError ? 'border-red-300 bg-red-50' : 'border-gray-300'
-                }`}
-                placeholder="name@somaiya.edu"
-              />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">@somaiya.edu</span>
-            </div>
-            {studentEmailError && (
-              <p className="text-xs text-red-500 mt-1">{studentEmailError}</p>
-            )}
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Semester</label>
-              <select
-                value={newStudent.semester}
-                onChange={e => setNewStudent({ ...newStudent, semester: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+      {showStudentModal && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-hidden">
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Add Student</h3>
+                <p className="text-sm text-gray-500">Add a single student or import from CSV</p>
+              </div>
+              <button
+                onClick={() => setShowStudentModal(false)}
+                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
               >
-                <option value="1">Semester 1</option>
-                <option value="2">Semester 2</option>
-                <option value="3">Semester 3</option>
-                <option value="4">Semester 4</option>
-                <option value="5">Semester 5</option>
-                <option value="6">Semester 6</option>
-                <option value="7">Semester 7</option>
-                <option value="8">Semester 8</option>
-              </select>
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Course</label>
-              <select
-                value={newStudent.course}
-                onChange={e => setNewStudent({ ...newStudent, course: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+
+            {/* Modal Body */}
+            <div className="px-6 py-5 overflow-y-auto max-h-[calc(90vh-160px)]">
+              {/* Import CSV Option */}
+              <div className="mb-5 p-4 border border-dashed border-gray-300 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-white rounded-lg border border-gray-200">
+                      <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">Import from CSV</p>
+                      <p className="text-xs text-gray-500">Bulk add multiple students</p>
+                    </div>
+                  </div>
+                  <label
+                    htmlFor="csv-upload-modal"
+                    className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
+                  >
+                    Choose File
+                  </label>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".csv"
+                    onChange={(e) => {
+                      handleCSVUpload(e);
+                      setShowStudentModal(false);
+                    }}
+                    className="hidden"
+                    id="csv-upload-modal"
+                  />
+                </div>
+              </div>
+
+              <div className="relative mb-5">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-gray-200"></div>
+                </div>
+                <div className="relative flex justify-center text-xs">
+                  <span className="px-2 bg-white text-gray-500">or add manually</span>
+                </div>
+              </div>
+
+              {/* Manual Form */}
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                  <input
+                    type="text"
+                    value={newStudent.name}
+                    onChange={e => setNewStudent({ ...newStudent, name: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-1 focus:ring-gray-300 focus:border-gray-300 outline-none"
+                    placeholder="Enter student name"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                  <div className="relative">
+                    <input
+                      type="email"
+                      value={newStudent.email}
+                      onChange={e => {
+                        setNewStudent({ ...newStudent, email: e.target.value });
+                        if (studentEmailError) setStudentEmailError('');
+                      }}
+                      className={`w-full px-3 py-2 border rounded-lg focus:ring-1 focus:ring-gray-300 outline-none ${
+                        studentEmailError ? 'border-red-300 bg-red-50' : 'border-gray-200'
+                      }`}
+                      placeholder="name@somaiya.edu"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">@somaiya.edu</span>
+                  </div>
+                  {studentEmailError && (
+                    <p className="text-xs text-red-500 mt-1">{studentEmailError}</p>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Semester</label>
+                    <select
+                      value={newStudent.semester}
+                      onChange={e => setNewStudent({ ...newStudent, semester: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-1 focus:ring-gray-300 outline-none"
+                    >
+                      {[1,2,3,4,5,6,7,8].map(s => (
+                        <option key={s} value={s}>Semester {s}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Course</label>
+                    <select
+                      value={newStudent.course}
+                      onChange={e => setNewStudent({ ...newStudent, course: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-1 focus:ring-gray-300 outline-none"
+                    >
+                      <option value="IT">Information Technology</option>
+                      <option value="AIDS">AI & Data Science</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Division</label>
+                    <select
+                      value={newStudent.division}
+                      onChange={e => setNewStudent({ ...newStudent, division: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-1 focus:ring-gray-300 outline-none"
+                    >
+                      {['A', 'B', 'C', 'D'].map(d => (
+                        <option key={d} value={d}>{d}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Batch</label>
+                    <select
+                      value={newStudent.batch}
+                      onChange={e => setNewStudent({ ...newStudent, batch: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-1 focus:ring-gray-300 outline-none"
+                    >
+                      {['A1', 'A2', 'B1', 'B2', 'C1', 'C2', 'D1', 'D2'].map(b => (
+                        <option key={b} value={b}>{b}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-3 bg-gray-50">
+              <button
+                onClick={() => setShowStudentModal(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200 rounded-lg transition-colors"
               >
-                <option value="IT">Information Technology</option>
-                <option value="AIDS">AI & Data Science</option>
-              </select>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Division</label>
-              <select
-                value={newStudent.division}
-                onChange={e => setNewStudent({ ...newStudent, division: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                Cancel
+              </button>
+              <button
+                onClick={handleAddStudent}
+                className="px-4 py-2 text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-lg transition-colors"
               >
-                {['A', 'B', 'C', 'D'].map(d => (
-                  <option key={d} value={d}>{d}</option>
-                ))}
-              </select>
+                Add Student
+              </button>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Batch</label>
-              <select
-                value={newStudent.batch}
-                onChange={e => setNewStudent({ ...newStudent, batch: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              >
-                {['A1', 'A2', 'B1', 'B2', 'C1', 'C2', 'D1', 'D2'].map(b => (
-                  <option key={b} value={b}>{b}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-          <div className="flex justify-end gap-2 pt-4">
-            <Button variant="outline" onClick={() => setShowStudentModal(false)}>Cancel</Button>
-            <Button onClick={handleAddStudent}>Add Student</Button>
           </div>
         </div>
-      </Modal>
+      )}
 
       {/* Add Faculty Modal */}
-      <Modal isOpen={showFacultyModal} onClose={() => setShowFacultyModal(false)} title="Add Faculty">
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
-            <input
-              type="text"
-              value={newFaculty.name}
-              onChange={e => setNewFaculty({ ...newFaculty, name: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              placeholder="Enter faculty name"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-            <div className="relative">
-              <input
-                type="email"
-                value={newFaculty.email}
-                onChange={e => {
-                  setNewFaculty({ ...newFaculty, email: e.target.value });
-                  if (facultyEmailError) setFacultyEmailError('');
-                }}
-                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
-                  facultyEmailError ? 'border-red-300 bg-red-50' : 'border-gray-300'
-                }`}
-                placeholder="name@somaiya.edu"
-              />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">@somaiya.edu</span>
+      {showFacultyModal && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-hidden">
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Add Faculty</h3>
+                <p className="text-sm text-gray-500">Add a single faculty or import from CSV</p>
+              </div>
+              <button
+                onClick={() => setShowFacultyModal(false)}
+                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
             </div>
-            {facultyEmailError && (
-              <p className="text-xs text-red-500 mt-1">{facultyEmailError}</p>
-            )}
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Faculty Code <span className="text-red-500">*</span></label>
-            <input
-              type="text"
-              value={newFaculty.facultyCode}
-              onChange={e => setNewFaculty({ ...newFaculty, facultyCode: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              placeholder="Enter short code, e.g. IT-F01"
-            />
-          </div>
-          <div className="flex justify-end gap-2 pt-4">
-            <Button variant="outline" onClick={() => setShowFacultyModal(false)}>Cancel</Button>
-            <Button onClick={handleAddFaculty}>Add Faculty</Button>
+
+            {/* Modal Body */}
+            <div className="px-6 py-5 overflow-y-auto max-h-[calc(90vh-160px)]">
+              {/* Import CSV Option */}
+              <div className="mb-5 p-4 border border-dashed border-gray-300 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-white rounded-lg border border-gray-200">
+                      <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">Import from CSV</p>
+                      <p className="text-xs text-gray-500">Bulk add multiple faculty</p>
+                    </div>
+                  </div>
+                  <label
+                    htmlFor="faculty-csv-upload-modal"
+                    className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
+                  >
+                    Choose File
+                  </label>
+                  <input
+                    ref={facultyFileInputRef}
+                    type="file"
+                    accept=".csv"
+                    onChange={(e) => {
+                      handleFacultyCSVUpload(e);
+                      setShowFacultyModal(false);
+                    }}
+                    className="hidden"
+                    id="faculty-csv-upload-modal"
+                  />
+                </div>
+              </div>
+
+              <div className="relative mb-5">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-gray-200"></div>
+                </div>
+                <div className="relative flex justify-center text-xs">
+                  <span className="px-2 bg-white text-gray-500">or add manually</span>
+                </div>
+              </div>
+
+              {/* Manual Form */}
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                  <input
+                    type="text"
+                    value={newFaculty.name}
+                    onChange={e => setNewFaculty({ ...newFaculty, name: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-1 focus:ring-gray-300 focus:border-gray-300 outline-none"
+                    placeholder="Enter faculty name"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                  <div className="relative">
+                    <input
+                      type="email"
+                      value={newFaculty.email}
+                      onChange={e => {
+                        setNewFaculty({ ...newFaculty, email: e.target.value });
+                        if (facultyEmailError) setFacultyEmailError('');
+                      }}
+                      className={`w-full px-3 py-2 border rounded-lg focus:ring-1 focus:ring-gray-300 outline-none ${
+                        facultyEmailError ? 'border-red-300 bg-red-50' : 'border-gray-200'
+                      }`}
+                      placeholder="name@somaiya.edu"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">@somaiya.edu</span>
+                  </div>
+                  {facultyEmailError && (
+                    <p className="text-xs text-red-500 mt-1">{facultyEmailError}</p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Faculty Code</label>
+                  <input
+                    type="text"
+                    value={newFaculty.facultyCode}
+                    onChange={e => setNewFaculty({ ...newFaculty, facultyCode: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-1 focus:ring-gray-300 focus:border-gray-300 outline-none"
+                    placeholder="e.g. IT-F01"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-3 bg-gray-50">
+              <button
+                onClick={() => setShowFacultyModal(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAddFaculty}
+                className="px-4 py-2 text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-lg transition-colors"
+              >
+                Add Faculty
+              </button>
+            </div>
           </div>
         </div>
-      </Modal>
+      )}
 
       {/* Edit Student Modal */}
       <Modal isOpen={showEditStudentModal} onClose={() => { setShowEditStudentModal(false); setEditingStudent(null); }} title="Edit Student">
@@ -1112,6 +1264,7 @@ export default function UserManagementPage() {
                       <th className="py-3 px-3 w-10"></th>
                       <th className="text-left py-3 px-3 text-xs font-medium text-gray-500 uppercase">Name</th>
                       <th className="text-left py-3 px-3 text-xs font-medium text-gray-500 uppercase">Email</th>
+                      <th className="text-left py-3 px-3 text-xs font-medium text-gray-500 uppercase">Course</th>
                       <th className="text-left py-3 px-3 text-xs font-medium text-gray-500 uppercase">Sem</th>
                       <th className="text-left py-3 px-3 text-xs font-medium text-gray-500 uppercase">Div</th>
                     </tr>
@@ -1137,6 +1290,7 @@ export default function UserManagementPage() {
                         </td>
                         <td className="py-3 px-3 text-gray-900 font-medium">{student.name}</td>
                         <td className="py-3 px-3 text-gray-500 text-xs">{student.email}</td>
+                        <td className="py-3 px-3 text-gray-600 text-xs">{student.course === 'AIDS' ? 'AI & DS' : 'IT'}</td>
                         <td className="py-3 px-3 text-gray-600">{student.semester}</td>
                         <td className="py-3 px-3 text-gray-600">{student.division}</td>
                       </tr>
