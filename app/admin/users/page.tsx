@@ -42,7 +42,6 @@ export default function UserManagementPage() {
 
   const [localStudents, setLocalStudents] = useState<Student[]>([]);
   const [localFaculty, setLocalFaculty] = useState<Faculty[]>([]);
-  const [openStudentMenuId, setOpenStudentMenuId] = useState<string | null>(null);
 
   // Fetch students and faculty from DB on mount
   useEffect(() => {
@@ -719,40 +718,21 @@ export default function UserManagementPage() {
                     <td className="py-3 px-4 text-sm text-gray-600">Sem {student.semester}</td>
                     <td className="py-3 px-4 text-sm text-gray-600">{student.division}</td>
                     <td className="py-3 px-4 text-sm text-gray-600">{student.batch || '-'}</td>
-                    <td className="py-3 px-6 text-sm text-gray-500">
-                      <div className="relative inline-block text-left">
+                    <td className="py-3 px-6 text-sm">
+                      <div className="flex items-center gap-1">
                         <button
-                          type="button"
-                          onClick={() => setOpenStudentMenuId(openStudentMenuId === student.id ? null : student.id)}
-                          className="p-1.5 rounded-full hover:bg-gray-100 text-gray-500 focus:outline-none"
+                          onClick={() => handleEditStudent(student)}
+                          className="text-gray-500 hover:text-gray-700 text-xs font-medium transition-colors"
                         >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.75a1.25 1.25 0 110-2.5 1.25 1.25 0 010 2.5zm0 6a1.25 1.25 0 110-2.5 1.25 1.25 0 010 2.5zm0 6a1.25 1.25 0 110-2.5 1.25 1.25 0 010 2.5z" />
-                          </svg>
+                          Edit
                         </button>
-
-                        {openStudentMenuId === student.id && (
-                          <div className="absolute right-0 mt-1 w-28 bg-white border border-gray-100 rounded-lg shadow-lg z-10">
-                            <button
-                              onClick={() => {
-                                setOpenStudentMenuId(null);
-                                handleEditStudent(student);
-                              }}
-                              className="w-full px-3 py-1.5 text-left text-xs text-gray-700 hover:bg-gray-50"
-                            >
-                              Edit
-                            </button>
-                            <button
-                              onClick={() => {
-                                setOpenStudentMenuId(null);
-                                handleDeleteStudent(student.id);
-                              }}
-                              className="w-full px-3 py-1.5 text-left text-xs text-red-600 hover:bg-red-50"
-                            >
-                              Delete
-                            </button>
-                          </div>
-                        )}
+                        <span className="text-gray-300">/</span>
+                        <button
+                          onClick={() => handleDeleteStudent(student.id)}
+                          className="text-gray-500 hover:text-red-600 text-xs font-medium transition-colors"
+                        >
+                          Delete
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -1150,90 +1130,118 @@ export default function UserManagementPage() {
       )}
 
       {/* Edit Student Modal */}
-      <Modal isOpen={showEditStudentModal} onClose={() => { setShowEditStudentModal(false); setEditingStudent(null); }} title="Edit Student">
-        {editingStudent && (
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
-              <input
-                type="text"
-                value={editingStudent.name}
-                disabled
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-              <input
-                type="email"
-                value={editingStudent.email}
-                disabled
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-500"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
+      {showEditStudentModal && editingStudent && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-hidden">
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Semester</label>
-                <select
-                  value={editingStudent.semester}
-                  onChange={e => setEditingStudent({ ...editingStudent, semester: parseInt(e.target.value) })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value={1}>Semester 1</option>
-                  <option value={2}>Semester 2</option>
-                  <option value={3}>Semester 3</option>
-                  <option value={4}>Semester 4</option>
-                  <option value={5}>Semester 5</option>
-                  <option value={6}>Semester 6</option>
-                  <option value={7}>Semester 7</option>
-                  <option value={8}>Semester 8</option>
-                </select>
+                <h3 className="text-lg font-semibold text-gray-900">Edit Student</h3>
+                <p className="text-sm text-gray-500">Update student details</p>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Course</label>
-                <select
-                  value={editingStudent.course}
-                  onChange={e => setEditingStudent({ ...editingStudent, course: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="IT">Information Technology</option>
-                  <option value="AIDS">AI & Data Science</option>
-                </select>
+              <button
+                onClick={() => { setShowEditStudentModal(false); setEditingStudent(null); }}
+                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="px-6 py-5 overflow-y-auto max-h-[calc(90vh-160px)]">
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                  <input
+                    type="text"
+                    value={editingStudent.name}
+                    disabled
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                  <input
+                    type="email"
+                    value={editingStudent.email}
+                    disabled
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-500"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Semester</label>
+                    <select
+                      value={editingStudent.semester}
+                      onChange={e => setEditingStudent({ ...editingStudent, semester: parseInt(e.target.value) })}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-1 focus:ring-gray-300 outline-none"
+                    >
+                      {[1,2,3,4,5,6,7,8].map(s => (
+                        <option key={s} value={s}>Semester {s}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Course</label>
+                    <select
+                      value={editingStudent.course}
+                      onChange={e => setEditingStudent({ ...editingStudent, course: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-1 focus:ring-gray-300 outline-none"
+                    >
+                      <option value="IT">Information Technology</option>
+                      <option value="AIDS">AI & Data Science</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Division</label>
+                    <select
+                      value={editingStudent.division}
+                      onChange={e => setEditingStudent({ ...editingStudent, division: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-1 focus:ring-gray-300 outline-none"
+                    >
+                      {['A', 'B', 'C', 'D'].map(d => (
+                        <option key={d} value={d}>{d}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Batch</label>
+                    <select
+                      value={editingStudent.batch}
+                      onChange={e => setEditingStudent({ ...editingStudent, batch: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-1 focus:ring-gray-300 outline-none"
+                    >
+                      {['A1', 'A2', 'A3', 'B1', 'B2', 'B3', 'C1', 'C2', 'C3', 'D1', 'D2', 'D3'].map(b => (
+                        <option key={b} value={b}>{b}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Division</label>
-                <select
-                  value={editingStudent.division}
-                  onChange={e => setEditingStudent({ ...editingStudent, division: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                >
-                  {['A', 'B', 'C', 'D'].map(d => (
-                    <option key={d} value={d}>{d}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Batch</label>
-                <select
-                  value={editingStudent.batch}
-                  onChange={e => setEditingStudent({ ...editingStudent, batch: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                >
-                  {['A1', 'A2', 'A3', 'B1', 'B2', 'B3', 'C1', 'C2', 'C3', 'D1', 'D2', 'D3'].map(b => (
-                    <option key={b} value={b}>{b}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            <div className="flex justify-end gap-2 pt-4">
-              <Button variant="outline" onClick={() => { setShowEditStudentModal(false); setEditingStudent(null); }}>Cancel</Button>
-              <Button onClick={handleUpdateStudent}>Save Changes</Button>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-3 bg-gray-50">
+              <button
+                onClick={() => { setShowEditStudentModal(false); setEditingStudent(null); }}
+                className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleUpdateStudent}
+                className="px-4 py-2 text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-lg transition-colors"
+              >
+                Save Changes
+              </button>
             </div>
           </div>
-        )}
-      </Modal>
+        </div>
+      )}
 
       {/* CSV Preview Modal - Students */}
       {showCSVPreviewModal && (
