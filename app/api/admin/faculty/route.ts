@@ -1,20 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { verifyAuth, hasRole, unauthorizedResponse, forbiddenResponse } from '@/lib/auth';
 
-// GET all faculty
-export async function GET() {
+// GET all faculty (authenticated users only)
+export async function GET(request: NextRequest) {
+  const auth = await verifyAuth(request);
+  if (!auth.authenticated) {
+    return unauthorizedResponse('Please sign in to access this resource');
+  }
+
   try {
     const allFaculty = await prisma.faculty.findMany({
       orderBy: { name: 'asc' },
     });
     
     // Map to frontend format
-    const mapped = allFaculty.map((f: { id: string; name: string; email: string; department_id: string; faculty_code?: string | null }) => ({
+    const mapped = allFaculty.map((f) => ({
       id: f.id,
       name: f.name,
       email: f.email,
       departmentId: f.department_id,
-      facultyCode: f.faculty_code ?? null,
+      facultyCode: (f as { faculty_code?: string | null }).faculty_code ?? null,
     }));
     
     return NextResponse.json(mapped);
@@ -24,8 +30,13 @@ export async function GET() {
   }
 }
 
-// POST create new faculty + user
+// POST create new faculty + user - ADMIN ONLY
 export async function POST(request: NextRequest) {
+  const auth = await verifyAuth(request);
+  if (!hasRole(auth, ['admin'])) {
+    return forbiddenResponse('Only admins can create faculty');
+  }
+
   try {
     const body = await request.json();
     const { name, email, facultyCode } = body;
@@ -46,15 +57,15 @@ export async function POST(request: NextRequest) {
     const facultyId = `fac_${Date.now()}`;
     const userId = `user_${Date.now()}_f`;
 
-    // Create faculty record
+    // Create faculty record, including faculty code
     const faculty = await prisma.faculty.create({
       data: {
         id: facultyId,
         name,
         email,
-        faculty_code: facultyCode ?? null,
         department_id: 'dept1', // IT department
-      },
+        faculty_code: facultyCode,
+      } as { id: string; name: string; email: string; department_id: string; faculty_code?: string },
     });
 
     // Create user record with role 'faculty'
@@ -74,7 +85,7 @@ export async function POST(request: NextRequest) {
       name: faculty.name,
       email: faculty.email,
       departmentId: faculty.department_id,
-      facultyCode: faculty.faculty_code,
+      facultyCode: (faculty as { faculty_code?: string | null }).faculty_code ?? null,
     }, { status: 201 });
 
   } catch (error: unknown) {
@@ -84,8 +95,13 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// DELETE faculty by ID
+// DELETE faculty by ID - ADMIN ONLY
 export async function DELETE(request: NextRequest) {
+  const auth = await verifyAuth(request);
+  if (!hasRole(auth, ['admin'])) {
+    return forbiddenResponse('Only admins can delete faculty');
+  }
+
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');

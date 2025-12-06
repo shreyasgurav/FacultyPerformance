@@ -1,13 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { verifyAuth, hasRole, unauthorizedResponse, forbiddenResponse } from '@/lib/auth';
 
 // Helper: Calculate year from semester (1-2 = Year 1, 3-4 = Year 2, etc.)
 function semesterToYear(semester: number): number {
   return Math.ceil(semester / 2);
 }
 
-// GET all students
-export async function GET() {
+// GET all students (authenticated users only)
+export async function GET(request: NextRequest) {
+  const auth = await verifyAuth(request);
+  if (!auth.authenticated) {
+    return unauthorizedResponse('Please sign in to access this resource');
+  }
+
   try {
     const allStudents = await prisma.students.findMany({
       orderBy: { name: 'asc' },
@@ -33,8 +39,13 @@ export async function GET() {
   }
 }
 
-// POST create new student + user
+// POST create new student + user - ADMIN ONLY
 export async function POST(request: NextRequest) {
+  const auth = await verifyAuth(request);
+  if (!hasRole(auth, ['admin'])) {
+    return forbiddenResponse('Only admins can create students');
+  }
+
   try {
     const body = await request.json();
     const { name, email, semester, course, division, batch } = body;
@@ -105,8 +116,13 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// PUT update student details
+// PUT update student details - ADMIN ONLY
 export async function PUT(request: NextRequest) {
+  const auth = await verifyAuth(request);
+  if (!hasRole(auth, ['admin'])) {
+    return forbiddenResponse('Only admins can update students');
+  }
+
   try {
     const body = await request.json();
     const { id, semester, course, division, batch } = body;
@@ -151,8 +167,13 @@ export async function PUT(request: NextRequest) {
   }
 }
 
-// DELETE student by ID
+// DELETE student by ID - ADMIN ONLY
 export async function DELETE(request: NextRequest) {
+  const auth = await verifyAuth(request);
+  if (!hasRole(auth, ['admin'])) {
+    return forbiddenResponse('Only admins can delete students');
+  }
+
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');

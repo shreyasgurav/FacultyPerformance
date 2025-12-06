@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { ArrowLeftIcon, PlusIcon, CheckCircleIcon } from '@/components/Icons';
+import ProtectedRoute from '@/components/ProtectedRoute';
+import { useAuth } from '@/contexts/AuthContext';
 
 type FormType = 'division' | 'batch';
 
@@ -23,7 +25,8 @@ interface FormEntry {
   formType: FormType;
 }
 
-export default function GenerateFormsPage() {
+function GenerateFormsContent() {
+  const { authFetch } = useAuth();
   const [formType, setFormType] = useState<FormType>('division');
   const [selectedSemester, setSelectedSemester] = useState('');
   const [selectedCourse, setSelectedCourse] = useState('');
@@ -56,7 +59,7 @@ export default function GenerateFormsPage() {
   useEffect(() => {
     async function fetchFaculty() {
       try {
-        const res = await fetch('/api/admin/faculty');
+        const res = await authFetch('/api/admin/faculty');
         if (res.ok) {
           const data = await res.json();
           setFacultyList(data);
@@ -68,7 +71,7 @@ export default function GenerateFormsPage() {
       }
     }
     fetchFaculty();
-  }, []);
+  }, [authFetch]);
 
   // Get selected faculty details
   const selectedFaculty = facultyList.find(f => f.id === selectedFacultyId);
@@ -175,7 +178,7 @@ export default function GenerateFormsPage() {
 
     setIsSubmitting(true);
     try {
-      const res = await fetch('/api/admin/forms', {
+      const res = await authFetch('/api/admin/forms', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ forms: generatedForms }),
@@ -203,6 +206,12 @@ export default function GenerateFormsPage() {
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
       <div className="mb-8">
+        <Link
+          href="/admin/dashboard"
+          className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors mb-3"
+        >
+          <ArrowLeftIcon className="w-5 h-5" />
+        </Link>
         <h1 className="text-2xl font-bold text-gray-900">Generate Forms</h1>
         <p className="text-gray-500 text-sm mt-1">Create feedback forms for divisions or batches</p>
       </div>
@@ -424,5 +433,13 @@ export default function GenerateFormsPage() {
         </Link>
       </div>
     </div>
+  );
+}
+
+export default function GenerateFormsPage() {
+  return (
+    <ProtectedRoute allowedRoles={['admin']}>
+      <GenerateFormsContent />
+    </ProtectedRoute>
   );
 }

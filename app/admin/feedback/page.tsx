@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Toast from '@/components/Toast';
 import { ArrowLeftIcon } from '@/components/Icons';
+import ProtectedRoute from '@/components/ProtectedRoute';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface FeedbackForm {
   id: string;
@@ -24,7 +26,8 @@ interface FeedbackResponse {
   student_id: string;
 }
 
-export default function FeedbackMonitoringPage() {
+function FeedbackMonitoringContent() {
+  const { authFetch } = useAuth();
   const [forms, setForms] = useState<FeedbackForm[]>([]);
   const [responses, setResponses] = useState<FeedbackResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -54,8 +57,8 @@ export default function FeedbackMonitoringPage() {
     async function fetchData() {
       try {
         const [formsRes, responsesRes] = await Promise.all([
-          fetch('/api/admin/forms'),
-          fetch('/api/responses'),
+          authFetch('/api/admin/forms'),
+          authFetch('/api/responses'),
         ]);
 
         if (formsRes.ok) {
@@ -86,6 +89,18 @@ export default function FeedbackMonitoringPage() {
     return true;
   });
 
+  // Progressive loading
+  const ITEMS_PER_PAGE = 20;
+  const [displayCount, setDisplayCount] = useState(ITEMS_PER_PAGE);
+  const displayedForms = filteredForms.slice(0, displayCount);
+  const hasMore = filteredForms.length > displayCount;
+  const loadMore = () => setDisplayCount(prev => prev + ITEMS_PER_PAGE);
+
+  // Reset display count when filters change
+  useEffect(() => {
+    setDisplayCount(ITEMS_PER_PAGE);
+  }, [semesterFilter, courseFilter, divisionFilter]);
+
   const getResponseCount = (formId: string) => {
     return responses.filter(r => r.form_id === formId).length;
   };
@@ -98,7 +113,7 @@ export default function FeedbackMonitoringPage() {
     if (!confirmed) return;
 
     try {
-      const res = await fetch(`/api/admin/forms?id=${encodeURIComponent(form.id)}`, {
+      const res = await authFetch(`/api/admin/forms?id=${encodeURIComponent(form.id)}`, {
         method: 'DELETE',
       });
 
@@ -128,6 +143,12 @@ export default function FeedbackMonitoringPage() {
       )}
 
       <div className="mb-6">
+        <Link
+          href="/admin/dashboard"
+          className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors mb-3"
+        >
+          <ArrowLeftIcon className="w-5 h-5" />
+        </Link>
         <h1 className="text-2xl font-bold text-gray-900">Feedback Monitoring</h1>
         <p className="text-gray-500 text-sm mt-1">View and analyze feedback responses</p>
       </div>
@@ -187,56 +208,77 @@ export default function FeedbackMonitoringPage() {
         {filteredForms.length === 0 ? (
           <p className="text-gray-400 text-center text-sm py-8">No feedback forms found.</p>
         ) : (
-          <div className="overflow-x-auto -mx-6">
-            <table className="w-full min-w-[700px]">
-              <thead>
-                <tr className="border-b border-gray-100">
-                  <th className="text-left py-3 px-6 text-xs font-medium text-gray-400 uppercase tracking-wider">Subject</th>
-                  <th className="text-left py-3 px-4 text-xs font-medium text-gray-400 uppercase tracking-wider">Faculty</th>
-                  <th className="text-left py-3 px-4 text-xs font-medium text-gray-400 uppercase tracking-wider">Sem/Course</th>
-                  <th className="text-left py-3 px-4 text-xs font-medium text-gray-400 uppercase tracking-wider">Division</th>
-                  <th className="text-left py-3 px-4 text-xs font-medium text-gray-400 uppercase tracking-wider">Responses</th>
-                  <th className="text-left py-3 px-6 text-xs font-medium text-gray-400 uppercase tracking-wider">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                {filteredForms.map(form => {
-                  const responseCount = getResponseCount(form.id);
-                  
-                  return (
-                    <tr key={form.id} className="hover:bg-gray-50/50 transition-colors">
-                      <td className="py-3 px-6">
-                        <p className="text-sm font-medium text-gray-900">{form.subject_name}</p>
-                        {form.subject_code && <p className="text-xs text-gray-400">{form.subject_code}</p>}
-                      </td>
-                      <td className="py-3 px-4 text-sm text-gray-600">{form.faculty_name}</td>
-                      <td className="py-3 px-4 text-sm text-gray-600">
-                        Sem {form.semester} · {form.course === 'AIDS' ? 'AI&DS' : 'IT'}
-                      </td>
-                      <td className="py-3 px-4 text-sm text-gray-600">
-                        {form.division}{form.batch ? ` / ${form.batch}` : ''}
-                      </td>
-                      <td className="py-3 px-4">
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
-                          {responseCount}
-                        </span>
-                      </td>
-                      <td className="py-3 px-6">
-                        <button
-                          onClick={() => handleDeleteForm(form)}
-                          className="text-red-500 hover:text-red-700 text-xs font-medium"
-                        >
-                          Delete
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <>
+            <div className="overflow-x-auto -mx-6">
+              <table className="w-full min-w-[700px]">
+                <thead>
+                  <tr className="border-b border-gray-100">
+                    <th className="text-left py-3 px-6 text-xs font-medium text-gray-400 uppercase tracking-wider">Subject</th>
+                    <th className="text-left py-3 px-4 text-xs font-medium text-gray-400 uppercase tracking-wider">Faculty</th>
+                    <th className="text-left py-3 px-4 text-xs font-medium text-gray-400 uppercase tracking-wider">Sem/Course</th>
+                    <th className="text-left py-3 px-4 text-xs font-medium text-gray-400 uppercase tracking-wider">Division</th>
+                    <th className="text-left py-3 px-4 text-xs font-medium text-gray-400 uppercase tracking-wider">Responses</th>
+                    <th className="text-left py-3 px-6 text-xs font-medium text-gray-400 uppercase tracking-wider">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {displayedForms.map(form => {
+                    const responseCount = getResponseCount(form.id);
+                    
+                    return (
+                      <tr key={form.id} className="hover:bg-gray-50/50 transition-colors">
+                        <td className="py-3 px-6">
+                          <p className="text-sm font-medium text-gray-900">{form.subject_name}</p>
+                          {form.subject_code && <p className="text-xs text-gray-400">{form.subject_code}</p>}
+                        </td>
+                        <td className="py-3 px-4 text-sm text-gray-600">{form.faculty_name}</td>
+                        <td className="py-3 px-4 text-sm text-gray-600">
+                          Sem {form.semester} · {form.course === 'AIDS' ? 'AI&DS' : 'IT'}
+                        </td>
+                        <td className="py-3 px-4 text-sm text-gray-600">
+                          {form.division}{form.batch ? ` / ${form.batch}` : ''}
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+                            {responseCount}
+                          </span>
+                        </td>
+                        <td className="py-3 px-6">
+                          <button
+                            onClick={() => handleDeleteForm(form)}
+                            className="text-red-500 hover:text-red-700 text-xs font-medium"
+                          >
+                            Delete
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            {/* Load More Button */}
+            {hasMore && (
+              <div className="text-center py-4">
+                <button
+                  onClick={loadMore}
+                  className="px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                >
+                  Load More ({filteredForms.length - displayCount} remaining)
+                </button>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>
+  );
+}
+
+export default function FeedbackMonitoringPage() {
+  return (
+    <ProtectedRoute allowedRoles={['admin']}>
+      <FeedbackMonitoringContent />
+    </ProtectedRoute>
   );
 }

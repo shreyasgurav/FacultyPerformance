@@ -1,9 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Toast from '@/components/Toast';
+import ProtectedRoute from '@/components/ProtectedRoute';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface FeedbackForm {
   id: string;
@@ -47,12 +49,12 @@ interface PageProps {
   params: { formId: string };
 }
 
-export default function FeedbackFormPage({ params }: PageProps) {
+function FeedbackFormContent({ params }: PageProps) {
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const { userRole, authFetch } = useAuth();
   const [form, setForm] = useState<FeedbackForm | null>(null);
   const [parameters, setParameters] = useState<FeedbackParameter[]>([]);
-  const [students, setStudents] = useState<StudentRecord[]>([]);
+  const [student, setStudent] = useState<StudentRecord | null>(null);
   const [responses, setResponses] = useState<FeedbackResponse[]>([]);
   const [ratings, setRatings] = useState<Record<string, number>>({});
   const [comment, setComment] = useState('');
@@ -61,40 +63,39 @@ export default function FeedbackFormPage({ params }: PageProps) {
   const [toastType, setToastType] = useState<'success' | 'error'>('success');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [studentId, setStudentId] = useState<string | null>(null);
   const [alreadySubmitted, setAlreadySubmitted] = useState(false);
   const [notAuthorized, setNotAuthorized] = useState(false);
+  
+  // Use authenticated studentId - SECURITY: Never trust URL params for identity
+  const studentId = userRole?.studentId || null;
 
   useEffect(() => {
     async function fetchData() {
+      // Wait for authenticated studentId
+      if (!studentId) {
+        setIsLoading(false);
+        setNotAuthorized(true);
+        return;
+      }
+
       try {
-        // First fetch the form to determine if it's theory or lab
-        const formRes = await fetch(`/api/forms/${params.formId}`);
+        // Fetch form, student data, parameters, and responses
+        const [formRes, studentRes, responsesRes] = await Promise.all([
+          authFetch(`/api/forms/${params.formId}`),
+          authFetch(`/api/admin/students/${studentId}`),
+          authFetch('/api/responses'),
+        ]);
+
         let formData: FeedbackForm | null = null;
         if (formRes.ok) {
           formData = await formRes.json();
           setForm(formData);
         }
 
-        // Determine form type: if batch is set, it's a lab form; otherwise theory
-        const formType = formData?.batch ? 'lab' : 'theory';
-
-        // Fetch parameters based on form type, plus students and responses
-        const [paramsRes, studentsRes, responsesRes] = await Promise.all([
-          fetch(`/api/feedback-parameters?formType=${formType}`),
-          fetch('/api/admin/students'),
-          fetch('/api/responses'),
-        ]);
-
-        if (paramsRes.ok) {
-          const paramsData = await paramsRes.json();
-          setParameters(paramsData);
-        }
-
-        let allStudents: StudentRecord[] = [];
-        if (studentsRes.ok) {
-          allStudents = await studentsRes.json();
-          setStudents(allStudents);
+        let currentStudent: StudentRecord | null = null;
+        if (studentRes.ok) {
+          currentStudent = await studentRes.json();
+          setStudent(currentStudent);
         }
 
         let allResponses: FeedbackResponse[] = [];
@@ -103,21 +104,18 @@ export default function FeedbackFormPage({ params }: PageProps) {
           setResponses(allResponses);
         }
 
-        // Get student ID from URL - required for proper identification
-        const urlStudentId = searchParams.get('studentId');
-        let currentStudent: StudentRecord | undefined;
-        
-        if (urlStudentId && allStudents.find(s => s.id === urlStudentId)) {
-          setStudentId(urlStudentId);
-          currentStudent = allStudents.find(s => s.id === urlStudentId);
-          const hasSubmitted = allResponses.some(
-            r => r.form_id === params.formId && r.student_id === urlStudentId
-          );
-          setAlreadySubmitted(hasSubmitted);
-        } else {
-          // No studentId in URL - redirect back to dashboard
-          setNotAuthorized(true);
-          return;
+        // Check if already submitted
+        const hasSubmitted = allResponses.some(
+          r => r.form_id === params.formId && r.student_id === studentId
+        );
+        setAlreadySubmitted(hasSubmitted);
+
+        // Determine form type and fetch parameters
+        const formType = formData?.batch ? 'lab' : 'theory';
+        const paramsRes = await authFetch(`/api/feedback-parameters?formType=${formType}`);
+        if (paramsRes.ok) {
+          const paramsData = await paramsRes.json();
+          setParameters(paramsData);
         }
 
         // Check if student is authorized to access this form
@@ -141,7 +139,7 @@ export default function FeedbackFormPage({ params }: PageProps) {
     }
 
     fetchData();
-  }, [params.formId, searchParams]);
+  }, [params.formId, studentId]);
 
   useEffect(() => {
     if (studentId) {
@@ -163,7 +161,7 @@ export default function FeedbackFormPage({ params }: PageProps) {
     setIsSubmitting(true);
 
     try {
-      const res = await fetch('/api/responses', {
+      const res = await authFetch('/api/responses', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -411,5 +409,13 @@ export default function FeedbackFormPage({ params }: PageProps) {
         </button>
       </form>
     </div>
+  );
+}
+
+export default function FeedbackFormPage({ params }: PageProps) {
+  return (
+    <ProtectedRoute allowedRoles={['student']}>
+      <FeedbackFormContent params={params} />
+    </ProtectedRoute>
   );
 }

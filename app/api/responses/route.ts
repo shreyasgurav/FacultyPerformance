@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { randomUUID } from 'crypto';
+import { verifyAuth, unauthorizedResponse } from '@/lib/auth';
 
-// GET all responses (optionally filter by form_id or student_id)
+// GET all responses (optionally filter by form_id or student_id) - authenticated users only
 export async function GET(request: NextRequest) {
+  const auth = await verifyAuth(request);
+  if (!auth.authenticated) {
+    return unauthorizedResponse('Please sign in to access this resource');
+  }
+
   try {
     const { searchParams } = new URL(request.url);
     const formId = searchParams.get('formId');
@@ -39,11 +45,24 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST submit a new feedback response
+// POST submit a new feedback response - students only
 export async function POST(request: NextRequest) {
+  const auth = await verifyAuth(request);
+  if (!auth.authenticated) {
+    return unauthorizedResponse('Please sign in to submit feedback');
+  }
+
   try {
     const body = await request.json();
     const { formId, studentId, ratings, comment } = body;
+    
+    // Security: Verify the studentId matches the authenticated user
+    if (auth.studentId && auth.studentId !== studentId) {
+      return new Response(JSON.stringify({ error: 'You can only submit feedback for yourself' }), {
+        status: 403,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
 
     if (!formId || !studentId || !ratings) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });

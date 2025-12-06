@@ -1,6 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
+import { useAuth } from '@/contexts/AuthContext';
+import ProtectedRoute from '@/components/ProtectedRoute';
 
 interface FacultyRecord {
   id: string;
@@ -40,32 +43,30 @@ interface FeedbackParameter {
   question_type: string;
 }
 
-export default function FacultyDashboardPage() {
-  const [faculty, setFaculty] = useState<FacultyRecord[]>([]);
+function FacultyDashboardContent() {
+  const { userRole, signOut, authFetch } = useAuth();
+  const [currentFaculty, setCurrentFaculty] = useState<FacultyRecord | null>(null);
   const [forms, setForms] = useState<FeedbackForm[]>([]);
   const [responses, setResponses] = useState<FeedbackResponse[]>([]);
   const [parameters, setParameters] = useState<FeedbackParameter[]>([]);
-  const [currentFacultyId, setCurrentFacultyId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedFormId, setSelectedFormId] = useState<string | null>(null);
   const [showProfile, setShowProfile] = useState(false);
 
   useEffect(() => {
     async function fetchData() {
+      if (!userRole?.facultyId) return;
+      
       try {
         const [facultyRes, formsRes, responsesRes, paramsRes] = await Promise.all([
-          fetch('/api/admin/faculty'),
-          fetch('/api/admin/forms'),
-          fetch('/api/responses'),
-          fetch('/api/feedback-parameters'),
+          authFetch(`/api/admin/faculty/${userRole.facultyId}`),
+          authFetch('/api/admin/forms'),
+          authFetch('/api/responses'),
+          authFetch('/api/feedback-parameters'),
         ]);
         
         if (facultyRes.ok) {
           const data = await facultyRes.json();
-          setFaculty(data);
-          if (data.length > 0) {
-            setCurrentFacultyId(data[0].id);
-          }
+          setCurrentFaculty(data);
         }
         
         if (formsRes.ok) {
@@ -90,9 +91,7 @@ export default function FacultyDashboardPage() {
     }
 
     fetchData();
-  }, []);
-
-  const currentFaculty = faculty.find(f => f.id === currentFacultyId) || null;
+  }, [userRole?.facultyId]);
   
   // Filter forms for this faculty's email
   const facultyForms = currentFaculty ? forms.filter(f => 
@@ -140,66 +139,6 @@ export default function FacultyDashboardPage() {
     };
   });
 
-  // Detailed stats for a single form (per-question averages + comments)
-  const getFormDetails = (formId: string) => {
-    const form = forms.find(f => f.id === formId);
-    const formResponses = responses.filter(r => r.form_id === formId);
-    
-    // Determine form type: if batch exists, it's lab; otherwise theory
-    const formType = form?.batch ? 'lab' : 'theory';
-    
-    // Filter parameters by form type
-    const formParameters = parameters.filter(p => p.form_type === formType);
-
-    let totalRating = 0;
-    let ratingCount = 0;
-
-    formResponses.forEach(resp => {
-      resp.feedback_response_items.forEach(item => {
-        const param = formParameters.find(p => p.id === item.parameter_id);
-        if (param) {
-          totalRating += normalizeRating(item.rating, param.question_type);
-          ratingCount++;
-        }
-      });
-    });
-
-    const avgRating = ratingCount > 0 ? totalRating / ratingCount : 0;
-
-    const parameterAverages = formParameters.map((param, idx) => {
-      let paramTotal = 0;
-      let paramCount = 0;
-
-      formResponses.forEach(resp => {
-        const item = resp.feedback_response_items.find(i => i.parameter_id === param.id);
-        if (item) {
-          paramTotal += item.rating;
-          paramCount++;
-        }
-      });
-
-      return {
-        id: param.id,
-        index: idx + 1,
-        text: param.text,
-        average: paramCount > 0 ? paramTotal / paramCount : 0,
-        count: paramCount,
-        question_type: param.question_type || 'scale_1_10',
-      };
-    });
-
-    const comments = formResponses
-      .filter(r => r.comment && r.comment.trim())
-      .map(r => r.comment!.trim());
-
-    return {
-      avgRating,
-      responseCount: formResponses.length,
-      parameterAverages,
-      comments,
-    };
-  };
-
   // Overall stats
   const totalResponses = formStats.reduce((sum, s) => sum + s.responseCount, 0);
   const overallAvg = formStats.length > 0 
@@ -207,32 +146,35 @@ export default function FacultyDashboardPage() {
     : 0;
 
   if (isLoading) {
-    return <div className="p-6 text-gray-500">Loading...</div>;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-gray-900 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-500 text-sm">Loading...</p>
+        </div>
+      </div>
+    );
   }
 
   if (!currentFaculty) {
-    return <div className="p-6 text-gray-500">No faculty found. Add faculty from Admin → User Management.</div>;
+    return <div className="p-6 text-gray-500">Faculty profile not found.</div>;
   }
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-6">
-      {/* Title row with demo dropdown and profile */}
+      {/* Title row with profile */}
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-xl font-semibold text-gray-900">My Feedback Forms</h2>
 
         <div className="flex items-center gap-3">
-          {/* Demo dropdown */}
-          <div className="flex items-center gap-2">
-            <label className="text-xs text-gray-400">Demo as:</label>
-            <select
-              value={currentFacultyId ?? ''}
-              onChange={(e) => setCurrentFacultyId(e.target.value)}
-              className="px-2 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:bg-white transition-colors"
-            >
-              {faculty.map(f => (
-                <option key={f.id} value={f.id}>{f.name}</option>
-              ))}
-            </select>
+          {/* Stats */}
+          <div className="hidden sm:flex items-center gap-3 px-3 py-1.5 bg-gray-50 rounded-lg text-xs">
+            <span className="text-gray-400">Responses: <span className="font-semibold text-gray-900">{totalResponses}</span></span>
+            <span className="text-gray-300">|</span>
+            <span className="text-gray-400">Avg: <span className={`font-semibold ${
+              overallAvg >= 7 ? 'text-green-600' :
+              overallAvg >= 5 ? 'text-yellow-600' : 'text-red-600'
+            }`}>{overallAvg > 0 ? overallAvg.toFixed(1) : '-'}/10</span></span>
           </div>
 
           {/* Profile button + dropdown */}
@@ -280,6 +222,14 @@ export default function FacultyDashboardPage() {
                       {overallAvg > 0 ? overallAvg.toFixed(1) : '-'}/10
                     </span>
                   </div>
+                </div>
+                <div className="px-4 py-3 border-t border-gray-100">
+                  <button
+                    onClick={signOut}
+                    className="w-full text-left text-sm text-red-600 hover:text-red-700 font-medium"
+                  >
+                    Sign Out
+                  </button>
                 </div>
               </div>
             )}
@@ -331,12 +281,12 @@ export default function FacultyDashboardPage() {
                         </span>
                       </td>
                       <td className="py-3 px-5">
-                        <button
-                          onClick={() => setSelectedFormId(form.id)}
+                        <Link
+                          href={`/report/${form.id}`}
                           className="text-blue-600 hover:text-blue-800 text-xs font-medium"
                         >
                           View Details
-                        </button>
+                        </Link>
                       </td>
                     </tr>
                   ))}
@@ -344,138 +294,16 @@ export default function FacultyDashboardPage() {
               </table>
             </div>
           </div>
-
-          {/* Modal/Popup for detailed report */}
-          {selectedFormId && (() => {
-            const selectedForm = facultyForms.find(f => f.id === selectedFormId);
-            if (!selectedForm) return null;
-            const details = getFormDetails(selectedFormId);
-
-            return (
-              <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
-                  {/* Modal Header */}
-                  <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900">{selectedForm.subject_name}</h3>
-                      <p className="text-sm text-gray-500">
-                        Year {selectedForm.year} · {selectedForm.course === 'AIDS' ? 'AI & DS' : 'IT'} · Div {selectedForm.division}{selectedForm.batch ? ` / ${selectedForm.batch}` : ''}
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => setSelectedFormId(null)}
-                      className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </div>
-
-                  {/* Modal Body */}
-                  <div className="px-6 py-5 overflow-y-auto max-h-[calc(90vh-120px)]">
-                    {/* Summary stats */}
-                    <div className="flex items-center gap-8 mb-6 pb-5 border-b border-gray-100">
-                      <div>
-                        <p className="text-xs text-gray-400 uppercase tracking-wider mb-1">Responses</p>
-                        <p className="text-2xl font-bold text-gray-900">{details.responseCount}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-400 uppercase tracking-wider mb-1">Avg Rating</p>
-                        <p className={`text-2xl font-bold ${
-                          details.avgRating >= 7 ? 'text-green-600' :
-                          details.avgRating >= 5 ? 'text-yellow-600' : 'text-red-600'
-                        }`}>
-                          {details.avgRating > 0 ? details.avgRating.toFixed(1) : '-'}/10
-                        </p>
-                      </div>
-                    </div>
-
-                    {details.responseCount === 0 ? (
-                      <p className="text-center text-sm text-gray-400 py-8">No responses yet for this form.</p>
-                    ) : (
-                      <>
-                        {/* Question-wise averages */}
-                        <div className="mb-6">
-                          <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-3">Question-wise Ratings</p>
-                          <div className="space-y-3">
-                            {details.parameterAverages.map(param => {
-                              // Normalize all ratings to 1-10 scale for display
-                              let normalizedRating = 0;
-                              let percentage = 0;
-
-                              if (param.question_type === 'yes_no') {
-                                // 0 -> 1, 1 -> 10
-                                normalizedRating = param.average === 1 ? 10 : (param.average * 9 + 1);
-                                percentage = normalizedRating * 10;
-                              } else if (param.question_type === 'scale_3') {
-                                // 1 -> 3.3, 2 -> 6.6, 3 -> 10
-                                normalizedRating = (param.average / 3) * 10;
-                                percentage = normalizedRating * 10;
-                              } else {
-                                // 1-10 scale (default)
-                                normalizedRating = param.average;
-                                percentage = normalizedRating * 10;
-                              }
-
-                              const isGood = normalizedRating >= 7;
-                              const isMedium = normalizedRating >= 5;
-                              const displayValue = normalizedRating.toFixed(1);
-
-                              return (
-                                <div key={param.id}>
-                                  <div className="flex items-start justify-between text-sm mb-1 gap-2">
-                                    <span className="text-gray-600 flex-1">
-                                      {param.index}. {param.text}
-                                    </span>
-                                    <span className={`text-xs font-semibold whitespace-nowrap ${
-                                      isGood ? 'text-green-600' :
-                                      isMedium ? 'text-yellow-600' : 'text-red-600'
-                                    }`}>
-                                      {displayValue}/10
-                                    </span>
-                                  </div>
-                                  <div className="w-full bg-gray-100 rounded-full h-1.5">
-                                    <div
-                                      className={`h-1.5 rounded-full transition-all ${
-                                        isGood ? 'bg-green-500' :
-                                        isMedium ? 'bg-yellow-500' : 'bg-red-500'
-                                      }`}
-                                      style={{ width: `${percentage}%` }}
-                                    />
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-
-                        {/* Comments */}
-                        <div>
-                          <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-3">
-                            Student Comments ({details.comments.length})
-                          </p>
-                          {details.comments.length === 0 ? (
-                            <p className="text-sm text-gray-400 italic">No comments submitted.</p>
-                          ) : (
-                            <div className="space-y-2 max-h-48 overflow-y-auto">
-                              {details.comments.map((comment, idx) => (
-                                <div key={idx} className="p-3 bg-gray-50 rounded-xl text-sm text-gray-600">
-                                  <p className="italic">&ldquo;{comment}&rdquo;</p>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      </>
-                    )}
-                  </div>
-                </div>
-              </div>
-            );
-          })()}
-        </>)
-      }
+        </>
+      )}
     </div>
+  );
+}
+
+export default function FacultyDashboardPage() {
+  return (
+    <ProtectedRoute allowedRoles={['faculty']}>
+      <FacultyDashboardContent />
+    </ProtectedRoute>
   );
 }

@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { verifyAuth, unauthorizedResponse } from '@/lib/auth';
 
-// GET feedback parameters (optionally filter by form_type: theory or lab)
+// GET feedback parameters (optionally filter by form_type: theory or lab) - authenticated users only
 export async function GET(request: NextRequest) {
+  const auth = await verifyAuth(request);
+  if (!auth.authenticated) {
+    return unauthorizedResponse('Please sign in to access this resource');
+  }
+
   try {
     const { searchParams } = new URL(request.url);
     const formType = searchParams.get('formType'); // 'theory' or 'lab'

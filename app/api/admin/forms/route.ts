@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { verifyAuth, hasRole, unauthorizedResponse, forbiddenResponse } from '@/lib/auth';
 
-// GET all feedback forms
-export async function GET() {
+// GET all feedback forms (admin, faculty, student can view)
+export async function GET(request: NextRequest) {
+  const auth = await verifyAuth(request);
+  if (!auth.authenticated) {
+    return unauthorizedResponse('Please sign in to access this resource');
+  }
+  
   try {
     const forms = await prisma.feedback_forms.findMany({
       orderBy: { created_at: 'desc' },
@@ -15,8 +21,13 @@ export async function GET() {
   }
 }
 
-// DELETE a single feedback form by id (and its responses)
+// DELETE a single feedback form by id (and its responses) - ADMIN ONLY
 export async function DELETE(request: NextRequest) {
+  const auth = await verifyAuth(request);
+  if (!hasRole(auth, ['admin'])) {
+    return forbiddenResponse('Only admins can delete forms');
+  }
+
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
@@ -57,8 +68,13 @@ export async function DELETE(request: NextRequest) {
   }
 }
 
-// POST create new feedback form(s)
+// POST create new feedback form(s) - ADMIN ONLY
 export async function POST(request: NextRequest) {
+  const auth = await verifyAuth(request);
+  if (!hasRole(auth, ['admin'])) {
+    return forbiddenResponse('Only admins can create forms');
+  }
+
   try {
     const body = await request.json();
     const { forms } = body; // Array of form entries

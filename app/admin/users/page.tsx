@@ -6,8 +6,10 @@ import Button from '@/components/Button';
 import Modal from '@/components/Modal';
 import Toast from '@/components/Toast';
 import { ArrowLeftIcon, PlusIcon } from '@/components/Icons';
+import ProtectedRoute from '@/components/ProtectedRoute';
+import { useAuth } from '@/contexts/AuthContext';
 
-type TabType = 'students' | 'faculty';
+type TabType = 'students' | 'faculty' | 'admins';
 
 interface Student {
   id: string;
@@ -29,7 +31,15 @@ interface Faculty {
   facultyCode?: string | null;
 }
 
-export default function UserManagementPage() {
+interface AdminUser {
+  id: string;
+  email: string;
+  name: string | null;
+  createdAt: string;
+}
+
+function UserManagementContent() {
+  const { authFetch } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>('students');
   const [showStudentModal, setShowStudentModal] = useState(false);
   const [showFacultyModal, setShowFacultyModal] = useState(false);
@@ -42,14 +52,16 @@ export default function UserManagementPage() {
 
   const [localStudents, setLocalStudents] = useState<Student[]>([]);
   const [localFaculty, setLocalFaculty] = useState<Faculty[]>([]);
+  const [localAdmins, setLocalAdmins] = useState<AdminUser[]>([]);
 
-  // Fetch students and faculty from DB on mount
+  // Fetch students, faculty, and admins from DB on mount
   useEffect(() => {
     async function fetchData() {
       try {
-        const [studentsRes, facultyRes] = await Promise.all([
-          fetch('/api/admin/students'),
-          fetch('/api/admin/faculty'),
+        const [studentsRes, facultyRes, adminsRes] = await Promise.all([
+          authFetch('/api/admin/students'),
+          authFetch('/api/admin/faculty'),
+          authFetch('/api/admin/admin-users'),
         ]);
         
         if (studentsRes.ok) {
@@ -60,6 +72,11 @@ export default function UserManagementPage() {
         if (facultyRes.ok) {
           const facultyData = await facultyRes.json();
           setLocalFaculty(facultyData);
+        }
+
+        if (adminsRes.ok) {
+          const adminsData = await adminsRes.json();
+          setLocalAdmins(adminsData);
         }
       } catch (error) {
         console.error('Error fetching data:', error);
@@ -106,6 +123,12 @@ export default function UserManagementPage() {
   const [csvFaculty, setCsvFaculty] = useState<{ name: string; email: string; code: string; selected: boolean; exists: boolean }[]>([]);
   const facultyFileInputRef = useRef<HTMLInputElement>(null);
 
+  // Pagination state - show limited items initially, load more on scroll/click
+  const ITEMS_PER_PAGE = 20;
+  const [studentsDisplayCount, setStudentsDisplayCount] = useState(ITEMS_PER_PAGE);
+  const [facultyDisplayCount, setFacultyDisplayCount] = useState(ITEMS_PER_PAGE);
+  const [adminsDisplayCount, setAdminsDisplayCount] = useState(ITEMS_PER_PAGE);
+
   // Filtered students
   const filteredStudents = localStudents.filter(student => {
     const matchesSearch = student.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -123,6 +146,27 @@ export default function UserManagementPage() {
            fac.email.toLowerCase().includes(facultySearchQuery.toLowerCase()) ||
            (fac.facultyCode || '').toLowerCase().includes(facultySearchQuery.toLowerCase());
   });
+
+  // Displayed items for students/faculty (sliced for progressive loading)
+  const displayedStudents = filteredStudents.slice(0, studentsDisplayCount);
+  const displayedFaculty = filteredFaculty.slice(0, facultyDisplayCount);
+
+  // Check if there are more items to load
+  const hasMoreStudents = filteredStudents.length > studentsDisplayCount;
+  const hasMoreFaculty = filteredFaculty.length > facultyDisplayCount;
+
+  // Load more handlers
+  const loadMoreStudents = () => setStudentsDisplayCount(prev => prev + ITEMS_PER_PAGE);
+  const loadMoreFaculty = () => setFacultyDisplayCount(prev => prev + ITEMS_PER_PAGE);
+
+  // Reset display count when filters change
+  useEffect(() => {
+    setStudentsDisplayCount(ITEMS_PER_PAGE);
+  }, [searchQuery, filterSemester, filterCourse, filterDivision, filterBatch]);
+
+  useEffect(() => {
+    setFacultyDisplayCount(ITEMS_PER_PAGE);
+  }, [facultySearchQuery]);
 
   // Validate somaiya.edu email
   const isValidSomaiyaEmail = (email: string) => {
@@ -241,7 +285,7 @@ export default function UserManagementPage() {
     
     for (const student of selectedStudents) {
       try {
-        const res = await fetch('/api/admin/students', {
+        const res = await authFetch('/api/admin/students', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(student),
@@ -375,7 +419,7 @@ export default function UserManagementPage() {
     
     for (const fac of selectedFaculty) {
       try {
-        const res = await fetch('/api/admin/faculty', {
+        const res = await authFetch('/api/admin/faculty', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -427,7 +471,7 @@ export default function UserManagementPage() {
     setStudentEmailError('');
     
     try {
-      const res = await fetch('/api/admin/students', {
+      const res = await authFetch('/api/admin/students', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newStudent),
@@ -456,7 +500,7 @@ export default function UserManagementPage() {
     if (!confirm('Are you sure you want to delete this student?')) return;
     
     try {
-      const res = await fetch(`/api/admin/students?id=${id}`, { method: 'DELETE' });
+      const res = await authFetch(`/api/admin/students?id=${id}`, { method: 'DELETE' });
       if (!res.ok) {
         const err = await res.json();
         throw new Error(err.error || 'Failed to delete student');
@@ -481,7 +525,7 @@ export default function UserManagementPage() {
     if (!editingStudent) return;
     
     try {
-      const res = await fetch('/api/admin/students', {
+      const res = await authFetch('/api/admin/students', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -516,7 +560,7 @@ export default function UserManagementPage() {
     if (!confirm('Are you sure you want to delete this faculty?')) return;
     
     try {
-      const res = await fetch(`/api/admin/faculty?id=${id}`, { method: 'DELETE' });
+      const res = await authFetch(`/api/admin/faculty?id=${id}`, { method: 'DELETE' });
       if (!res.ok) {
         const err = await res.json();
         throw new Error(err.error || 'Failed to delete faculty');
@@ -542,7 +586,7 @@ export default function UserManagementPage() {
     setFacultyEmailError('');
     
     try {
-      const res = await fetch('/api/admin/faculty', {
+      const res = await authFetch('/api/admin/faculty', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newFaculty),
@@ -567,6 +611,76 @@ export default function UserManagementPage() {
     }
   };
 
+  // Admin management state
+  const [showAdminModal, setShowAdminModal] = useState(false);
+  const [newAdmin, setNewAdmin] = useState({ email: '', name: '' });
+  const [adminSearchQuery, setAdminSearchQuery] = useState('');
+
+  // Filtered admins
+  const filteredAdmins = localAdmins.filter(admin =>
+    admin.email.toLowerCase().includes(adminSearchQuery.toLowerCase()) ||
+    (admin.name || '').toLowerCase().includes(adminSearchQuery.toLowerCase())
+  );
+
+  // Displayed admins (sliced for progressive loading)
+  const displayedAdmins = filteredAdmins.slice(0, adminsDisplayCount);
+  const hasMoreAdmins = filteredAdmins.length > adminsDisplayCount;
+  const loadMoreAdmins = () => setAdminsDisplayCount(prev => prev + ITEMS_PER_PAGE);
+
+  // Reset admin display count when search changes
+  useEffect(() => {
+    setAdminsDisplayCount(ITEMS_PER_PAGE);
+  }, [adminSearchQuery]);
+
+  const handleAddAdmin = async () => {
+    if (!newAdmin.email) return;
+    
+    try {
+      const res = await authFetch('/api/admin/admin-users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newAdmin),
+      });
+      
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to add admin');
+      }
+      
+      const admin = await res.json();
+      setLocalAdmins([admin, ...localAdmins]);
+      setShowAdminModal(false);
+      setNewAdmin({ email: '', name: '' });
+      setToastType('success');
+      setToastMessage('Admin added successfully!');
+      setShowToast(true);
+    } catch (error) {
+      setToastType('error');
+      setToastMessage(error instanceof Error ? error.message : 'Failed to add admin');
+      setShowToast(true);
+    }
+  };
+
+  const handleDeleteAdmin = async (id: string) => {
+    if (!confirm('Are you sure you want to remove this admin?')) return;
+    
+    try {
+      const res = await authFetch(`/api/admin/admin-users?id=${id}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to remove admin');
+      }
+      setLocalAdmins(localAdmins.filter(a => a.id !== id));
+      setToastType('success');
+      setToastMessage('Admin removed successfully!');
+      setShowToast(true);
+    } catch (error) {
+      setToastType('error');
+      setToastMessage(error instanceof Error ? error.message : 'Failed to remove admin');
+      setShowToast(true);
+    }
+  };
+
   return (
     <div className="max-w-6xl mx-auto px-4 py-6">
       {showToast && (
@@ -574,6 +688,12 @@ export default function UserManagementPage() {
       )}
 
       <div className="mb-6">
+        <Link
+          href="/admin/dashboard"
+          className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors mb-3"
+        >
+          <ArrowLeftIcon className="w-5 h-5" />
+        </Link>
         <h1 className="text-2xl font-bold text-gray-900">User Management</h1>
         <p className="text-gray-500 text-sm mt-1">Manage student and faculty accounts</p>
       </div>
@@ -604,6 +724,16 @@ export default function UserManagementPage() {
           }`}
         >
           Faculty ({localFaculty.length})
+        </button>
+        <button
+          onClick={() => setActiveTab('admins')}
+          className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+            activeTab === 'admins'
+              ? 'bg-gray-900 text-white'
+              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+          }`}
+        >
+          Admins ({localAdmins.length})
         </button>
       </div>}
 
@@ -710,7 +840,7 @@ export default function UserManagementPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {filteredStudents.map(student => (
+                {displayedStudents.map(student => (
                   <tr key={student.id} className="hover:bg-gray-50/50 transition-colors">
                     <td className="py-3 px-6 text-sm font-medium text-gray-900">{student.name}</td>
                     <td className="py-3 px-4 text-sm text-gray-600">{student.email}</td>
@@ -740,6 +870,17 @@ export default function UserManagementPage() {
               </tbody>
             </table>
           </div>
+          {/* Load More Button */}
+          {hasMoreStudents && (
+            <div className="text-center py-4">
+              <button
+                onClick={loadMoreStudents}
+                className="px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+              >
+                Load More ({filteredStudents.length - studentsDisplayCount} remaining)
+              </button>
+            </div>
+          )}
           {filteredStudents.length === 0 && localStudents.length > 0 && (
             <p className="text-center text-sm text-gray-400 py-8">No students match your filters</p>
           )}
@@ -789,23 +930,21 @@ export default function UserManagementPage() {
           </div>
 
           <div className="overflow-x-auto -mx-6">
-            <table className="w-full min-w-[600px]">
+            <table className="w-full min-w-[500px]">
               <thead>
                 <tr className="border-b border-gray-100">
                   <th className="text-left py-3 px-6 text-xs font-medium text-gray-400 uppercase tracking-wider">Name</th>
                   <th className="text-left py-3 px-4 text-xs font-medium text-gray-400 uppercase tracking-wider">Email</th>
                   <th className="text-left py-3 px-4 text-xs font-medium text-gray-400 uppercase tracking-wider">Code</th>
-                  <th className="text-left py-3 px-4 text-xs font-medium text-gray-400 uppercase tracking-wider">Department</th>
                   <th className="text-left py-3 px-6 text-xs font-medium text-gray-400 uppercase tracking-wider">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {filteredFaculty.map(fac => (
+                {displayedFaculty.map(fac => (
                   <tr key={fac.id} className="hover:bg-gray-50/50 transition-colors">
                     <td className="py-3 px-6 text-sm font-medium text-gray-900">{fac.name}</td>
                     <td className="py-3 px-4 text-sm text-gray-600">{fac.email}</td>
                     <td className="py-3 px-4 text-sm text-gray-600">{fac.facultyCode || '-'}</td>
-                    <td className="py-3 px-4 text-sm text-gray-600">Information Technology</td>
                     <td className="py-3 px-6">
                       <button
                         onClick={() => handleDeleteFaculty(fac.id)}
@@ -819,12 +958,187 @@ export default function UserManagementPage() {
               </tbody>
             </table>
           </div>
+          {/* Load More Button */}
+          {hasMoreFaculty && (
+            <div className="text-center py-4">
+              <button
+                onClick={loadMoreFaculty}
+                className="px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+              >
+                Load More ({filteredFaculty.length - facultyDisplayCount} remaining)
+              </button>
+            </div>
+          )}
           {filteredFaculty.length === 0 && localFaculty.length > 0 && (
             <p className="text-center text-sm text-gray-400 py-8">No faculty match your search</p>
           )}
           {localFaculty.length === 0 && (
             <p className="text-center text-sm text-gray-400 py-8">No faculty added yet</p>
           )}
+        </div>
+      )}
+
+      {/* Admins Tab */}
+      {!isLoading && activeTab === 'admins' && (
+        <div className="bg-white rounded-2xl border border-gray-100 p-6">
+          {/* Header with title and action button */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+            <div>
+              <h2 className="text-base font-semibold text-gray-900">Admin Access</h2>
+              <p className="text-xs text-gray-500 mt-0.5">Manage who has admin access to this system</p>
+            </div>
+            <button
+              onClick={() => setShowAdminModal(true)}
+              className="inline-flex items-center px-3 py-1.5 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors"
+            >
+              <PlusIcon className="w-4 h-4 mr-1.5" />
+              Add Admin
+            </button>
+          </div>
+
+          {/* Search */}
+          <div className="flex items-center gap-2 mb-4">
+            <div className="relative flex-1 max-w-xs">
+              <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              <input
+                type="text"
+                placeholder="Search by email or name..."
+                value={adminSearchQuery}
+                onChange={e => setAdminSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-1 focus:ring-gray-300 focus:border-gray-300 outline-none"
+              />
+            </div>
+            {adminSearchQuery && (
+              <button
+                onClick={() => setAdminSearchQuery('')}
+                className="text-xs text-gray-400 hover:text-gray-600"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+
+          <div className="overflow-x-auto -mx-6">
+            <table className="w-full min-w-[500px]">
+              <thead>
+                <tr className="border-b border-gray-100">
+                  <th className="text-left py-3 px-6 text-xs font-medium text-gray-400 uppercase tracking-wider">Email</th>
+                  <th className="text-left py-3 px-4 text-xs font-medium text-gray-400 uppercase tracking-wider">Name</th>
+                  <th className="text-left py-3 px-4 text-xs font-medium text-gray-400 uppercase tracking-wider">Added</th>
+                  <th className="text-left py-3 px-6 text-xs font-medium text-gray-400 uppercase tracking-wider">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {displayedAdmins.map(admin => (
+                  <tr key={admin.id} className="hover:bg-gray-50/50 transition-colors">
+                    <td className="py-3 px-6 text-sm font-medium text-gray-900">{admin.email}</td>
+                    <td className="py-3 px-4 text-sm text-gray-600">{admin.name || '-'}</td>
+                    <td className="py-3 px-4 text-sm text-gray-500">
+                      {admin.createdAt ? new Date(admin.createdAt).toLocaleDateString() : '-'}
+                    </td>
+                    <td className="py-3 px-6">
+                      <button
+                        onClick={() => handleDeleteAdmin(admin.id)}
+                        className="text-red-500 hover:text-red-700 text-xs font-medium"
+                      >
+                        Remove
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {/* Load More Button */}
+          {hasMoreAdmins && (
+            <div className="text-center py-4">
+              <button
+                onClick={loadMoreAdmins}
+                className="px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+              >
+                Load More ({filteredAdmins.length - adminsDisplayCount} remaining)
+              </button>
+            </div>
+          )}
+          {filteredAdmins.length === 0 && localAdmins.length > 0 && (
+            <p className="text-center text-sm text-gray-400 py-8">No admins match your search</p>
+          )}
+          {localAdmins.length === 0 && (
+            <p className="text-center text-sm text-gray-400 py-8">No dynamic admins added yet. Use the button above to add admin access.</p>
+          )}
+        </div>
+      )}
+
+      {/* Add Admin Modal */}
+      {showAdminModal && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden">
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Add Admin</h3>
+                <p className="text-sm text-gray-500">Grant admin access to a user</p>
+              </div>
+              <button
+                onClick={() => setShowAdminModal(false)}
+                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="px-6 py-5">
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Email Address <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="email"
+                    value={newAdmin.email}
+                    onChange={e => setNewAdmin({ ...newAdmin, email: e.target.value })}
+                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 outline-none"
+                    placeholder="admin@example.com"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Any email domain is allowed for admins</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Name <span className="text-gray-400">(optional)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={newAdmin.name}
+                    onChange={e => setNewAdmin({ ...newAdmin, name: e.target.value })}
+                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 outline-none"
+                    placeholder="Admin Name"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3">
+              <button
+                onClick={() => setShowAdminModal(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAddAdmin}
+                disabled={!newAdmin.email}
+                className="px-4 py-2 text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Add Admin
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -1419,5 +1733,13 @@ export default function UserManagementPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function UserManagementPage() {
+  return (
+    <ProtectedRoute allowedRoles={['admin']}>
+      <UserManagementContent />
+    </ProtectedRoute>
   );
 }
