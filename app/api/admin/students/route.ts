@@ -16,6 +16,10 @@ export async function GET(request: NextRequest) {
 
   try {
     const allStudents = await prisma.students.findMany({
+      where: {
+        // Exclude the placeholder student used for preserving deleted students' responses
+        id: { not: 'placeholder_deleted_students' },
+      },
       orderBy: { name: 'asc' },
     });
     
@@ -96,6 +100,32 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // Check for orphaned responses from when this student was previously deleted
+    // These are stored in the placeholder student with the email marker in the comment
+    const placeholderId = 'placeholder_deleted_students';
+    const emailMarker = `__original_student_email:${email}`;
+    
+    // Find responses that belong to this email
+    const orphanedResponses = await prisma.feedback_responses.findMany({
+      where: {
+        student_id: placeholderId,
+        comment: { contains: emailMarker },
+      },
+    });
+
+    // Re-link orphaned responses to the new student
+    for (const resp of orphanedResponses) {
+      // Remove the email marker from comment since student is restored
+      const cleanedComment = resp.comment?.replace(`\n${emailMarker}`, '').replace(emailMarker, '') || null;
+      await prisma.feedback_responses.update({
+        where: { id: resp.id },
+        data: {
+          student_id: studentId,
+          comment: cleanedComment || null,
+        },
+      });
+    }
+
     // Return in frontend format
     return NextResponse.json({
       id: student.id,
@@ -168,6 +198,8 @@ export async function PUT(request: NextRequest) {
 }
 
 // DELETE student by ID - ADMIN ONLY
+// Note: Feedback responses are preserved by moving them to a placeholder student.
+// The original email is stored in the comment field for re-linking if the student is re-added.
 export async function DELETE(request: NextRequest) {
   const auth = await verifyAuth(request);
   if (!hasRole(auth, ['admin'])) {
@@ -182,31 +214,65 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Missing student ID' }, { status: 400 });
     }
 
+    // Get student info before deletion
+    const student = await prisma.students.findUnique({
+      where: { id },
+    });
+
+    if (!student) {
+      return NextResponse.json({ error: 'Student not found' }, { status: 404 });
+    }
+
     // Delete associated user record first
     await prisma.users.deleteMany({
       where: { student_id: id },
     });
 
-    // Get all feedback response IDs for this student
-    const studentResponses = await prisma.feedback_responses.findMany({
+    // Store the student email in the comment field of responses for future re-linking
+    const responses = await prisma.feedback_responses.findMany({
       where: { student_id: id },
-      select: { id: true },
     });
-    const responseIds = studentResponses.map(r => r.id);
 
-    // Delete feedback response items first (child records)
-    if (responseIds.length > 0) {
-      await prisma.feedback_response_items.deleteMany({
-        where: { response_id: { in: responseIds } },
+    const emailMarker = `__original_student_email:${student.email}`;
+    
+    for (const resp of responses) {
+      // Only add marker if not already present
+      if (!resp.comment?.includes('__original_student_email:')) {
+        const newComment = resp.comment ? `${resp.comment}\n${emailMarker}` : emailMarker;
+        await prisma.feedback_responses.update({
+          where: { id: resp.id },
+          data: { comment: newComment },
+        });
+      }
+    }
+
+    // Create or find a placeholder student to maintain FK integrity
+    const placeholderId = 'placeholder_deleted_students';
+    let placeholder = await prisma.students.findUnique({
+      where: { id: placeholderId },
+    });
+
+    if (!placeholder) {
+      placeholder = await prisma.students.create({
+        data: {
+          id: placeholderId,
+          name: '[Deleted Students]',
+          email: 'deleted_placeholder@system.local',
+          department_id: student.department_id,
+          semester: 1,
+          course: 'IT',
+          division: 'X',
+        },
       });
     }
 
-    // Delete feedback responses for this student
-    await prisma.feedback_responses.deleteMany({
+    // Move responses to the placeholder student
+    await prisma.feedback_responses.updateMany({
       where: { student_id: id },
+      data: { student_id: placeholderId },
     });
 
-    // Delete student record
+    // Now delete the original student record
     await prisma.students.delete({
       where: { id },
     });

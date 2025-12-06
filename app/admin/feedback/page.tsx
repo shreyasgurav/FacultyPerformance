@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Toast from '@/components/Toast';
+import ConfirmDialog from '@/components/ConfirmDialog';
 import { ArrowLeftIcon } from '@/components/Icons';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
@@ -105,15 +106,27 @@ function FeedbackMonitoringContent() {
     return responses.filter(r => r.form_id === formId).length;
   };
 
-  const handleDeleteForm = async (form: FeedbackForm) => {
-    const confirmed = window.confirm(
-      `Are you sure you want to delete this feedback form for ${form.subject_name} (${form.division}${form.batch ? ' / ' + form.batch : ''})?\n\nThis will remove all responses linked to this form.`
-    );
+  // Delete confirmation state
+  const [deleteConfirm, setDeleteConfirm] = useState<{
+    isOpen: boolean;
+    form: FeedbackForm | null;
+  }>({ isOpen: false, form: null });
+  const [isDeleting, setIsDeleting] = useState(false);
 
-    if (!confirmed) return;
+  const openDeleteConfirm = (form: FeedbackForm) => {
+    setDeleteConfirm({ isOpen: true, form });
+  };
+
+  const closeDeleteConfirm = () => {
+    setDeleteConfirm({ isOpen: false, form: null });
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteConfirm.form) return;
+    setIsDeleting(true);
 
     try {
-      const res = await authFetch(`/api/admin/forms?id=${encodeURIComponent(form.id)}`, {
+      const res = await authFetch(`/api/admin/forms?id=${encodeURIComponent(deleteConfirm.form.id)}`, {
         method: 'DELETE',
       });
 
@@ -122,13 +135,16 @@ function FeedbackMonitoringContent() {
         throw new Error(data.error || 'Failed to delete form');
       }
 
-      setForms(prev => prev.filter(f => f.id !== form.id));
+      setForms(prev => prev.filter(f => f.id !== deleteConfirm.form!.id));
       setToastMessage('Feedback form deleted successfully');
       setShowToast(true);
+      closeDeleteConfirm();
     } catch (error) {
       console.error('Error deleting form', error);
       setToastMessage(error instanceof Error ? error.message : 'Failed to delete form');
       setShowToast(true);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -141,6 +157,17 @@ function FeedbackMonitoringContent() {
       {showToast && (
         <Toast message={toastMessage} type="success" onClose={() => setShowToast(false)} />
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={deleteConfirm.isOpen}
+        title="Delete Feedback Form"
+        message={deleteConfirm.form ? `Are you sure you want to delete the form for "${deleteConfirm.form.subject_name}"? This will remove all responses linked to this form.` : ''}
+        confirmText="Delete"
+        onConfirm={handleConfirmDelete}
+        onCancel={closeDeleteConfirm}
+        isLoading={isDeleting}
+      />
 
       <div className="mb-6">
         <Link
@@ -245,7 +272,7 @@ function FeedbackMonitoringContent() {
                         </td>
                         <td className="py-3 px-6">
                           <button
-                            onClick={() => handleDeleteForm(form)}
+                            onClick={() => openDeleteConfirm(form)}
                             className="text-red-500 hover:text-red-700 text-xs font-medium"
                           >
                             Delete

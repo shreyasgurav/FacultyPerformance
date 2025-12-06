@@ -7,6 +7,7 @@ import Modal from '@/components/Modal';
 import Toast from '@/components/Toast';
 import { ArrowLeftIcon, PlusIcon } from '@/components/Icons';
 import ProtectedRoute from '@/components/ProtectedRoute';
+import ConfirmDialog from '@/components/ConfirmDialog';
 import { useAuth } from '@/contexts/AuthContext';
 
 type TabType = 'students' | 'faculty' | 'admins';
@@ -49,6 +50,18 @@ function UserManagementContent() {
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState<'success' | 'error'>('success');
   const [isLoading, setIsLoading] = useState(true);
+  const [isAddingStudent, setIsAddingStudent] = useState(false);
+  const [isAddingFaculty, setIsAddingFaculty] = useState(false);
+  const [isAddingAdmin, setIsAddingAdmin] = useState(false);
+  
+  // Delete confirmation state
+  const [deleteConfirm, setDeleteConfirm] = useState<{
+    isOpen: boolean;
+    type: 'student' | 'faculty' | 'admin' | null;
+    id: string;
+    name: string;
+  }>({ isOpen: false, type: null, id: '', name: '' });
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const [localStudents, setLocalStudents] = useState<Student[]>([]);
   const [localFaculty, setLocalFaculty] = useState<Faculty[]>([]);
@@ -469,6 +482,7 @@ function UserManagementContent() {
       return;
     }
     setStudentEmailError('');
+    setIsAddingStudent(true);
     
     try {
       const res = await authFetch('/api/admin/students', {
@@ -493,26 +507,67 @@ function UserManagementContent() {
       setToastType('error');
       setToastMessage(error instanceof Error ? error.message : 'Failed to add student');
       setShowToast(true);
+    } finally {
+      setIsAddingStudent(false);
     }
   };
 
-  const handleDeleteStudent = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this student?')) return;
-    
+  const openDeleteConfirm = (type: 'student' | 'faculty' | 'admin', id: string, name: string) => {
+    setDeleteConfirm({ isOpen: true, type, id, name });
+  };
+
+  const closeDeleteConfirm = () => {
+    setDeleteConfirm({ isOpen: false, type: null, id: '', name: '' });
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteConfirm.type || !deleteConfirm.id) return;
+    setIsDeleting(true);
+
     try {
-      const res = await authFetch(`/api/admin/students?id=${id}`, { method: 'DELETE' });
+      let endpoint = '';
+      let successMessage = '';
+      
+      switch (deleteConfirm.type) {
+        case 'student':
+          endpoint = `/api/admin/students?id=${deleteConfirm.id}`;
+          successMessage = 'Student deleted successfully!';
+          break;
+        case 'faculty':
+          endpoint = `/api/admin/faculty?id=${deleteConfirm.id}`;
+          successMessage = 'Faculty deleted successfully!';
+          break;
+        case 'admin':
+          endpoint = `/api/admin/admin-users?id=${deleteConfirm.id}`;
+          successMessage = 'Admin removed successfully!';
+          break;
+      }
+
+      const res = await authFetch(endpoint, { method: 'DELETE' });
       if (!res.ok) {
         const err = await res.json();
-        throw new Error(err.error || 'Failed to delete student');
+        throw new Error(err.error || 'Failed to delete');
       }
-      setLocalStudents(localStudents.filter(s => s.id !== id));
+
+      // Update local state
+      if (deleteConfirm.type === 'student') {
+        setLocalStudents(localStudents.filter(s => s.id !== deleteConfirm.id));
+      } else if (deleteConfirm.type === 'faculty') {
+        setLocalFaculty(localFaculty.filter(f => f.id !== deleteConfirm.id));
+      } else if (deleteConfirm.type === 'admin') {
+        setLocalAdmins(localAdmins.filter(a => a.id !== deleteConfirm.id));
+      }
+
       setToastType('success');
-      setToastMessage('Student deleted successfully!');
+      setToastMessage(successMessage);
       setShowToast(true);
+      closeDeleteConfirm();
     } catch (error) {
       setToastType('error');
-      setToastMessage(error instanceof Error ? error.message : 'Failed to delete student');
+      setToastMessage(error instanceof Error ? error.message : 'Failed to delete');
       setShowToast(true);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -556,26 +611,6 @@ function UserManagementContent() {
     }
   };
 
-  const handleDeleteFaculty = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this faculty?')) return;
-    
-    try {
-      const res = await authFetch(`/api/admin/faculty?id=${id}`, { method: 'DELETE' });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || 'Failed to delete faculty');
-      }
-      setLocalFaculty(localFaculty.filter(f => f.id !== id));
-      setToastType('success');
-      setToastMessage('Faculty deleted successfully!');
-      setShowToast(true);
-    } catch (error) {
-      setToastType('error');
-      setToastMessage(error instanceof Error ? error.message : 'Failed to delete faculty');
-      setShowToast(true);
-    }
-  };
-
   const handleAddFaculty = async () => {
     if (!newFaculty.name || !newFaculty.email || !newFaculty.facultyCode) return;
     
@@ -584,6 +619,7 @@ function UserManagementContent() {
       return;
     }
     setFacultyEmailError('');
+    setIsAddingFaculty(true);
     
     try {
       const res = await authFetch('/api/admin/faculty', {
@@ -608,6 +644,8 @@ function UserManagementContent() {
       setToastType('error');
       setToastMessage(error instanceof Error ? error.message : 'Failed to add faculty');
       setShowToast(true);
+    } finally {
+      setIsAddingFaculty(false);
     }
   };
 
@@ -634,6 +672,7 @@ function UserManagementContent() {
 
   const handleAddAdmin = async () => {
     if (!newAdmin.email) return;
+    setIsAddingAdmin(true);
     
     try {
       const res = await authFetch('/api/admin/admin-users', {
@@ -658,26 +697,8 @@ function UserManagementContent() {
       setToastType('error');
       setToastMessage(error instanceof Error ? error.message : 'Failed to add admin');
       setShowToast(true);
-    }
-  };
-
-  const handleDeleteAdmin = async (id: string) => {
-    if (!confirm('Are you sure you want to remove this admin?')) return;
-    
-    try {
-      const res = await authFetch(`/api/admin/admin-users?id=${id}`, { method: 'DELETE' });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || 'Failed to remove admin');
-      }
-      setLocalAdmins(localAdmins.filter(a => a.id !== id));
-      setToastType('success');
-      setToastMessage('Admin removed successfully!');
-      setShowToast(true);
-    } catch (error) {
-      setToastType('error');
-      setToastMessage(error instanceof Error ? error.message : 'Failed to remove admin');
-      setShowToast(true);
+    } finally {
+      setIsAddingAdmin(false);
     }
   };
 
@@ -686,6 +707,17 @@ function UserManagementContent() {
       {showToast && (
         <Toast message={toastMessage} type={toastType} onClose={() => setShowToast(false)} />
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={deleteConfirm.isOpen}
+        title={`Delete ${deleteConfirm.type === 'admin' ? 'Admin' : deleteConfirm.type === 'faculty' ? 'Faculty' : 'Student'}`}
+        message={`Are you sure you want to delete "${deleteConfirm.name}"? This action cannot be undone.`}
+        confirmText="Delete"
+        onConfirm={handleConfirmDelete}
+        onCancel={closeDeleteConfirm}
+        isLoading={isDeleting}
+      />
 
       <div className="mb-6">
         <Link
@@ -858,7 +890,7 @@ function UserManagementContent() {
                         </button>
                         <span className="text-gray-300">/</span>
                         <button
-                          onClick={() => handleDeleteStudent(student.id)}
+                          onClick={() => openDeleteConfirm('student', student.id, student.name)}
                           className="text-gray-500 hover:text-red-600 text-xs font-medium transition-colors"
                         >
                           Delete
@@ -947,7 +979,7 @@ function UserManagementContent() {
                     <td className="py-3 px-4 text-sm text-gray-600">{fac.facultyCode || '-'}</td>
                     <td className="py-3 px-6">
                       <button
-                        onClick={() => handleDeleteFaculty(fac.id)}
+                        onClick={() => openDeleteConfirm('faculty', fac.id, fac.name)}
                         className="text-red-500 hover:text-red-700 text-xs font-medium"
                       >
                         Delete
@@ -1040,7 +1072,7 @@ function UserManagementContent() {
                     </td>
                     <td className="py-3 px-6">
                       <button
-                        onClick={() => handleDeleteAdmin(admin.id)}
+                        onClick={() => openDeleteConfirm('admin', admin.id, admin.name || admin.email)}
                         className="text-red-500 hover:text-red-700 text-xs font-medium"
                       >
                         Remove
@@ -1132,10 +1164,13 @@ function UserManagementContent() {
               </button>
               <button
                 onClick={handleAddAdmin}
-                disabled={!newAdmin.email}
-                className="px-4 py-2 text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={!newAdmin.email || isAddingAdmin}
+                className="px-4 py-2 text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
-                Add Admin
+                {isAddingAdmin && (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                )}
+                {isAddingAdmin ? 'Adding...' : 'Add Admin'}
               </button>
             </div>
           </div>
@@ -1304,9 +1339,13 @@ function UserManagementContent() {
               </button>
               <button
                 onClick={handleAddStudent}
-                className="px-4 py-2 text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-lg transition-colors"
+                disabled={isAddingStudent}
+                className="px-4 py-2 text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
-                Add Student
+                {isAddingStudent && (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                )}
+                {isAddingStudent ? 'Adding...' : 'Add Student'}
               </button>
             </div>
           </div>
@@ -1434,9 +1473,13 @@ function UserManagementContent() {
               </button>
               <button
                 onClick={handleAddFaculty}
-                className="px-4 py-2 text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-lg transition-colors"
+                disabled={isAddingFaculty}
+                className="px-4 py-2 text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
-                Add Faculty
+                {isAddingFaculty && (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                )}
+                {isAddingFaculty ? 'Adding...' : 'Add Faculty'}
               </button>
             </div>
           </div>
