@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
     });
     
     // Map to frontend format
-    const mapped = allStudents.map((s: { id: string; name: string; email: string; department_id: string; semester: number; course: string; division: string; batch: string | null }) => ({
+    const mapped = allStudents.map((s) => ({
       id: s.id,
       name: s.name,
       email: s.email,
