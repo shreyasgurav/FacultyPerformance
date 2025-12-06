@@ -7,6 +7,34 @@ function semesterToYear(semester: number): number {
   return Math.ceil(semester / 2);
 }
 
+// Helper: Check if email exists in any role (student, faculty, or admin)
+async function checkEmailInOtherRoles(email: string, excludeRole: 'student' | 'faculty' | 'admin'): Promise<{ exists: boolean; role?: string }> {
+  const normalizedEmail = email.toLowerCase();
+  
+  if (excludeRole !== 'student') {
+    // Check students table
+    const students = await prisma.students.findMany();
+    const studentMatch = students.find(s => s.email.toLowerCase() === normalizedEmail);
+    if (studentMatch) return { exists: true, role: 'student' };
+  }
+  
+  if (excludeRole !== 'faculty') {
+    // Check faculty table
+    const facultyList = await prisma.faculty.findMany();
+    const facultyMatch = facultyList.find(f => f.email.toLowerCase() === normalizedEmail);
+    if (facultyMatch) return { exists: true, role: 'faculty' };
+  }
+  
+  if (excludeRole !== 'admin') {
+    // Check admin_users table
+    const admins = await prisma.admin_users.findMany();
+    const adminMatch = admins.find(a => a.email.toLowerCase() === normalizedEmail);
+    if (adminMatch) return { exists: true, role: 'admin' };
+  }
+  
+  return { exists: false };
+}
+
 // GET all students (authenticated users only)
 export async function GET(request: NextRequest) {
   const auth = await verifyAuth(request);
@@ -63,12 +91,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Semester must be between 1 and 8' }, { status: 400 });
     }
 
-    // Check if email already exists
+    // Check if email already exists as student
     const existingStudent = await prisma.students.findUnique({
       where: { email },
     });
     if (existingStudent) {
       return NextResponse.json({ error: 'A student with this email already exists' }, { status: 409 });
+    }
+
+    // Check if email exists in other roles (faculty or admin)
+    const otherRole = await checkEmailInOtherRoles(email, 'student');
+    if (otherRole.exists) {
+      return NextResponse.json({ 
+        error: `This email is already registered as ${otherRole.role}. Please remove them from ${otherRole.role} first before adding as student.` 
+      }, { status: 409 });
     }
 
     // Generate unique IDs

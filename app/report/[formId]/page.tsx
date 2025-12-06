@@ -40,53 +40,7 @@ interface FeedbackParameter {
   form_type: string;
   question_type: string;
 }
-
-// Circular progress component for overall rating
-function CircularProgress({ value, size = 100 }: { value: number; size?: number }) {
-  const strokeWidth = 8;
-  const radius = (size - strokeWidth) / 2;
-  const circumference = radius * 2 * Math.PI;
-  const progress = Math.min(value / 10, 1);
-  const offset = circumference - progress * circumference;
-  
-  const getColor = () => {
-    if (value >= 7) return '#22c55e';
-    if (value >= 5) return '#eab308';
-    return '#ef4444';
-  };
-
-  return (
-    <div className="relative" style={{ width: size, height: size }}>
-      <svg width={size} height={size} className="transform -rotate-90">
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill="none"
-          stroke="#f3f4f6"
-          strokeWidth={strokeWidth}
-        />
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill="none"
-          stroke={getColor()}
-          strokeWidth={strokeWidth}
-          strokeDasharray={circumference}
-          strokeDashoffset={offset}
-          strokeLinecap="round"
-          className="transition-all duration-700 ease-out"
-        />
-      </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-xl font-bold text-gray-900">{value.toFixed(1)}</span>
-        <span className="text-[10px] text-gray-400">out of 10</span>
-      </div>
-    </div>
-  );
-}
-
+ 
 function ReportContent() {
   const params = useParams();
   const { authFetch, userRole } = useAuth();
@@ -270,8 +224,14 @@ function ReportContent() {
             )}
           </div>
           {stats && stats.avgRating > 0 && (
-            <div className="flex-shrink-0">
-              <CircularProgress value={stats.avgRating} size={80} />
+            <div className="text-right">
+              <p className={`text-3xl font-bold ${
+                stats.avgRating >= 7 ? 'text-green-600' :
+                stats.avgRating >= 5 ? 'text-yellow-600' : 'text-red-600'
+              }`}>
+                {stats.avgRating.toFixed(1)}
+                <span className="text-lg text-gray-400 font-normal">/10</span>
+              </p>
             </div>
           )}
         </div>

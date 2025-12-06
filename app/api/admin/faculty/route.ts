@@ -2,6 +2,31 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyAuth, hasRole, unauthorizedResponse, forbiddenResponse } from '@/lib/auth';
 
+// Helper: Check if email exists in any role (student, faculty, or admin)
+async function checkEmailInOtherRoles(email: string, excludeRole: 'student' | 'faculty' | 'admin'): Promise<{ exists: boolean; role?: string }> {
+  const normalizedEmail = email.toLowerCase();
+  
+  if (excludeRole !== 'student') {
+    const students = await prisma.students.findMany();
+    const studentMatch = students.find(s => s.email.toLowerCase() === normalizedEmail);
+    if (studentMatch) return { exists: true, role: 'student' };
+  }
+  
+  if (excludeRole !== 'faculty') {
+    const facultyList = await prisma.faculty.findMany();
+    const facultyMatch = facultyList.find(f => f.email.toLowerCase() === normalizedEmail);
+    if (facultyMatch) return { exists: true, role: 'faculty' };
+  }
+  
+  if (excludeRole !== 'admin') {
+    const admins = await prisma.admin_users.findMany();
+    const adminMatch = admins.find(a => a.email.toLowerCase() === normalizedEmail);
+    if (adminMatch) return { exists: true, role: 'admin' };
+  }
+  
+  return { exists: false };
+}
+
 // GET all faculty (authenticated users only)
 export async function GET(request: NextRequest) {
   const auth = await verifyAuth(request);
@@ -45,12 +70,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields (name, email, facultyCode)' }, { status: 400 });
     }
 
-    // Check if email already exists
+    // Check if email already exists as faculty
     const existingFaculty = await prisma.faculty.findUnique({
       where: { email },
     });
     if (existingFaculty) {
       return NextResponse.json({ error: 'A faculty with this email already exists' }, { status: 409 });
+    }
+
+    // Check if email exists in other roles (student or admin)
+    const otherRole = await checkEmailInOtherRoles(email, 'faculty');
+    if (otherRole.exists) {
+      return NextResponse.json({ 
+        error: `This email is already registered as ${otherRole.role}. Please remove them from ${otherRole.role} first before adding as faculty.` 
+      }, { status: 409 });
     }
 
     // Generate unique IDs
