@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeftIcon } from '@/components/Icons';
 import ProtectedRoute from '@/components/ProtectedRoute';
@@ -43,7 +43,6 @@ interface FeedbackParameter {
 
 function FacultyReportContent() {
   const params = useParams();
-  const router = useRouter();
   const { authFetch } = useAuth();
   const facultyEmail = decodeURIComponent(params.email as string);
 
@@ -196,34 +195,28 @@ function FacultyReportContent() {
         >
           <ArrowLeftIcon className="w-5 h-5" />
         </Link>
-        <h1 className="text-2xl font-bold text-gray-900">{facultyName}</h1>
-        <p className="text-sm text-gray-500 mt-0.5">{facultyEmail}</p>
+        
+        {/* Faculty name with overall rating on right */}
+        <div className="flex items-start justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">{facultyName}</h1>
+            <p className="text-sm text-gray-500 mt-0.5">{facultyEmail}</p>
+          </div>
+          {overallStats.avgRating > 0 && (
+            <div className="text-right">
+              <p className={`text-3xl font-bold ${
+                overallStats.avgRating >= 7 ? 'text-green-600' :
+                overallStats.avgRating >= 5 ? 'text-yellow-600' : 'text-red-600'
+              }`}>
+                {overallStats.avgRating.toFixed(1)}
+                <span className="text-lg text-gray-400 font-normal">/10</span>
+              </p>
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Small summary row */}
-      <div className="mb-4 text-xs sm:text-sm text-gray-500">
-        <span className="mr-4">
-          Subjects: <span className="font-medium text-gray-900">{overallStats.formCount}</span>
-        </span>
-        <span className="mr-4">
-          Total responses: <span className="font-medium text-gray-900">{overallStats.responseCount}</span>
-        </span>
-        <span>
-          Overall rating:{' '}
-          <span
-            className={`font-medium ${
-              overallStats.avgRating >= 7 ? 'text-green-600' :
-              overallStats.avgRating >= 5 ? 'text-yellow-600' :
-              overallStats.avgRating > 0 ? 'text-red-600' : 'text-gray-400'
-            }`}
-          >
-            {overallStats.avgRating > 0 ? overallStats.avgRating.toFixed(1) : '-'}
-          </span>
-          <span className="text-gray-400">/10</span>
-        </span>
-      </div>
-
-      {/* Subjects List */}
+      {/* Subjects List - Original Design */}
       <div className="bg-white rounded-2xl border border-gray-100 p-6">
         <h2 className="text-base font-semibold text-gray-900 mb-4">Subjects</h2>
         <div className="space-y-3">
