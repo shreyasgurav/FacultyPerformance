@@ -692,9 +692,13 @@ function GenerateFormsContent() {
         </div>
       )}
 
-      <div className="text-center text-sm text-gray-500">
+      <div className="flex items-center justify-center gap-4 text-sm text-gray-500">
         <Link href="/admin/feedback" className="text-blue-600 hover:text-blue-700">
           View all forms
+        </Link>
+        <span className="text-gray-300">|</span>
+        <Link href="/admin/form-editor" className="text-blue-600 hover:text-blue-700">
+          Edit form questions
         </Link>
       </div>
     </div>

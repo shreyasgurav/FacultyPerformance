@@ -172,9 +172,7 @@ function FacultyDashboardContent() {
         <div className="flex items-center gap-3">
           {/* Stats */}
           <div className="hidden sm:flex items-center gap-3 px-3 py-1.5 bg-gray-50 rounded-lg text-xs">
-            <span className="text-gray-400">Responses: <span className="font-semibold text-gray-900">{totalResponses}</span></span>
-            <span className="text-gray-300">|</span>
-            <span className="text-gray-400">Avg: <span className={`font-semibold ${
+            <span className="text-gray-400">Avg Rating: <span className={`font-semibold ${
               overallAvg >= 7 ? 'text-green-600' :
               overallAvg >= 5 ? 'text-yellow-600' : 'text-red-600'
             }`}>{overallAvg > 0 ? overallAvg.toFixed(1) : '-'}/10</span></span>
@@ -211,10 +209,6 @@ function FacultyDashboardContent() {
                   <div className="flex justify-between gap-2">
                     <span className="text-gray-400">Email</span>
                     <span className="font-medium text-gray-900 text-right text-xs break-all">{currentFaculty.email}</span>
-                  </div>
-                  <div className="flex justify-between gap-2">
-                    <span className="text-gray-400">Total Responses</span>
-                    <span className="font-medium text-gray-900 text-right">{totalResponses}</span>
                   </div>
                   <div className="flex justify-between gap-2">
                     <span className="text-gray-400">Overall Rating</span>
@@ -254,13 +248,12 @@ function FacultyDashboardContent() {
                   <tr className="border-b border-gray-100 bg-gray-50/50">
                     <th className="text-left py-3 px-5 text-xs font-medium text-gray-400 uppercase tracking-wider">Subject</th>
                     <th className="text-left py-3 px-4 text-xs font-medium text-gray-400 uppercase tracking-wider">Class</th>
-                    <th className="text-left py-3 px-4 text-xs font-medium text-gray-400 uppercase tracking-wider">Responses</th>
                     <th className="text-left py-3 px-4 text-xs font-medium text-gray-400 uppercase tracking-wider">Rating</th>
                     <th className="text-left py-3 px-5 text-xs font-medium text-gray-400 uppercase tracking-wider">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {formStats.map(({ form, responseCount, avgRating }) => (
+                  {formStats.map(({ form, avgRating }) => (
                     <tr key={form.id} className="hover:bg-gray-50/50 transition-colors">
                       <td className="py-3 px-5">
                         <p className="text-sm font-medium text-gray-900">{form.subject_name}</p>
@@ -268,11 +261,6 @@ function FacultyDashboardContent() {
                       </td>
                       <td className="py-3 px-4 text-sm text-gray-600">
                         Year {form.year} · {form.course === 'AIDS' ? 'AI&DS' : 'IT'} · {form.division}{form.batch ? `/${form.batch}` : ''}
-                      </td>
-                      <td className="py-3 px-4">
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
-                          {responseCount}
-                        </span>
                       </td>
                       <td className="py-3 px-4">
                         <span className={`text-sm font-semibold ${
