@@ -7,7 +7,7 @@ import ProtectedRoute from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
 
 type FormType = 'division' | 'batch';
-type InputMode = 'manual' | 'timetable';
+type InputMode = 'manual' | 'csv';
 
 interface Faculty {
   id: string;
@@ -25,29 +25,25 @@ interface FormEntry {
   course: string;
   batch?: string;
   formType: FormType;
+  academicYear: string;
 }
 
-interface ExtractedEntry {
-  subjectCode: string;
-  facultyCode: string;
-  facultyName: string | null;
-  facultyEmail: string | null;
-  facultyId: string | null;
-  batch: string | null;
-  isLab: boolean;
-  isValid: boolean;
-}
-
-interface ParseResult {
-  entries: ExtractedEntry[];
-  skippedEntries: ExtractedEntry[];
-  rawText?: string;
+// Calculate academic year based on current date
+function getDefaultAcademicYear(): string {
+  const now = new Date();
+  const month = now.getMonth();
+  const year = now.getFullYear();
+  
+  if (month >= 5) {
+    return `${year}-${(year + 1).toString().slice(-2)}`;
+  } else {
+    return `${year - 1}-${year.toString().slice(-2)}`;
+  }
 }
 
 function GenerateFormsContent() {
   const { authFetch } = useAuth();
   const [inputMode, setInputMode] = useState<InputMode>('manual');
-  const [formType, setFormType] = useState<FormType>('division');
   const [selectedSemester, setSelectedSemester] = useState('');
   const [selectedCourse, setSelectedCourse] = useState('');
   const [selectedDivision, setSelectedDivision] = useState('');
@@ -55,13 +51,13 @@ function GenerateFormsContent() {
   const [subjectName, setSubjectName] = useState('');
   const [selectedFacultyId, setSelectedFacultyId] = useState('');
   const [facultySearch, setFacultySearch] = useState('');
+  const [academicYear, setAcademicYear] = useState(getDefaultAcademicYear());
   
-  // Timetable parsing state
-  const [isParsingPdf, setIsParsingPdf] = useState(false);
-  const [parseResult, setParseResult] = useState<ParseResult | null>(null);
-  const [selectedExtracted, setSelectedExtracted] = useState<Set<number>>(new Set());
-  const [showSkippedEntries, setShowSkippedEntries] = useState(false);
+  // CSV upload state
+  const [csvData, setCsvData] = useState<FormEntry[]>([]);
+  const [csvError, setCsvError] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
   const [showFacultyDropdown, setShowFacultyDropdown] = useState(false);
   const [facultyList, setFacultyList] = useState<Faculty[]>([]);
   const [generatedForms, setGeneratedForms] = useState<FormEntry[]>([]);
@@ -100,10 +96,8 @@ function GenerateFormsContent() {
     fetchFaculty();
   }, [authFetch]);
 
-  // Get selected faculty details
   const selectedFaculty = facultyList.find(f => f.id === selectedFacultyId);
 
-  // Filter faculty based on search
   const filteredFaculty = facultyList.filter(f =>
     f.name.toLowerCase().includes(facultySearch.toLowerCase()) ||
     f.email.toLowerCase().includes(facultySearch.toLowerCase())
@@ -146,11 +140,9 @@ function GenerateFormsContent() {
   };
 
   const canAddForm = () => {
-    // Required: semester, course, division, subject, faculty
     if (!selectedSemester || !selectedCourse || !selectedDivision || !subjectName.trim() || !selectedFacultyId) {
       return false;
     }
-    // Batch is optional - if selected, it's a lab form; if not, it's a theory form
     return true;
   };
 
@@ -167,7 +159,6 @@ function GenerateFormsContent() {
       return;
     }
 
-    // Determine form type based on whether batch is selected
     const isLabForm = !!selectedBatch;
     const actualFormType: FormType = isLabForm ? 'batch' : 'division';
 
@@ -192,6 +183,7 @@ function GenerateFormsContent() {
       semester: selectedSemester,
       course: selectedCourse,
       formType: actualFormType,
+      academicYear: academicYear,
       ...(isLabForm && { batch: selectedBatch }),
     };
 
@@ -233,132 +225,133 @@ function GenerateFormsContent() {
 
   const getCourseName = (code: string) => courses.find(c => c.value === code)?.label || code;
 
-  // Handle PDF file upload
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  // Handle CSV file upload
+  const handleCsvUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    if (!file.name.toLowerCase().endsWith('.pdf')) {
-      setErrorMessage('Please upload a PDF file');
-      setTimeout(() => setErrorMessage(''), 3000);
+    if (!file.name.toLowerCase().endsWith('.csv')) {
+      setCsvError('Please upload a CSV file');
+      setTimeout(() => setCsvError(''), 3000);
       return;
     }
 
-    setIsParsingPdf(true);
-    setParseResult(null);
-    setSelectedExtracted(new Set());
-    setShowSkippedEntries(false);
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const text = e.target?.result as string;
+        const lines = text.split('\n').filter(line => line.trim());
+        
+        if (lines.length < 2) {
+          setCsvError('CSV file must have a header row and at least one data row');
+          setTimeout(() => setCsvError(''), 3000);
+          return;
+        }
 
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
+        // Parse header
+        const header = lines[0].split(',').map(h => h.trim().toLowerCase());
+        const requiredFields = ['subject', 'faculty_email', 'semester', 'course', 'division'];
+        const missingFields = requiredFields.filter(f => !header.includes(f));
+        
+        if (missingFields.length > 0) {
+          setCsvError(`Missing required columns: ${missingFields.join(', ')}`);
+          setTimeout(() => setCsvError(''), 5000);
+          return;
+        }
 
-      const res = await authFetch('/api/admin/parse-timetable', {
-        method: 'POST',
-        body: formData,
-      });
+        const subjectIdx = header.indexOf('subject');
+        const emailIdx = header.indexOf('faculty_email');
+        const semesterIdx = header.indexOf('semester');
+        const courseIdx = header.indexOf('course');
+        const divisionIdx = header.indexOf('division');
+        const batchIdx = header.indexOf('batch');
+        const yearIdx = header.indexOf('academic_year');
 
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || 'Failed to parse timetable');
+        const parsedForms: FormEntry[] = [];
+        const errors: string[] = [];
+
+        for (let i = 1; i < lines.length; i++) {
+          const values = lines[i].split(',').map(v => v.trim());
+          
+          const subject = values[subjectIdx];
+          const email = values[emailIdx];
+          const semester = values[semesterIdx];
+          const course = values[courseIdx];
+          const division = values[divisionIdx];
+          const batch = batchIdx >= 0 ? values[batchIdx] : '';
+          const year = yearIdx >= 0 ? values[yearIdx] : academicYear;
+
+          if (!subject || !email || !semester || !course || !division) {
+            errors.push(`Row ${i + 1}: Missing required fields`);
+            continue;
+          }
+
+          // Find faculty by email
+          const faculty = facultyList.find(f => f.email.toLowerCase() === email.toLowerCase());
+          if (!faculty) {
+            errors.push(`Row ${i + 1}: Faculty not found for email ${email}`);
+            continue;
+          }
+
+          parsedForms.push({
+            subjectName: subject,
+            facultyName: faculty.name,
+            facultyEmail: faculty.email,
+            division: division.toUpperCase(),
+            semester: semester,
+            course: course.toUpperCase(),
+            formType: batch ? 'batch' : 'division',
+            academicYear: year || academicYear,
+            ...(batch && { batch: batch.toUpperCase() }),
+          });
+        }
+
+        if (errors.length > 0) {
+          setCsvError(`${errors.length} row(s) skipped: ${errors.slice(0, 3).join('; ')}${errors.length > 3 ? '...' : ''}`);
+          setTimeout(() => setCsvError(''), 5000);
+        }
+
+        if (parsedForms.length > 0) {
+          setCsvData(parsedForms);
+          setSuccessMessage(`Parsed ${parsedForms.length} form(s) from CSV`);
+          setTimeout(() => setSuccessMessage(''), 3000);
+        }
+      } catch {
+        setCsvError('Failed to parse CSV file');
+        setTimeout(() => setCsvError(''), 3000);
       }
+    };
+    reader.readAsText(file);
 
-      const data = await res.json();
-      setParseResult({
-        entries: data.entries || [],
-        skippedEntries: data.skippedEntries || [],
-        rawText: data.rawText,
-      });
-
-      // Auto-select all valid entries
-      const allIndices = new Set<number>(data.entries.map((_: ExtractedEntry, i: number) => i));
-      setSelectedExtracted(allIndices);
-
-      if (data.entries.length === 0) {
-        setErrorMessage('No valid faculty-subject mappings found in the timetable. Make sure faculty codes in the PDF match the codes in your faculty database.');
-        setTimeout(() => setErrorMessage(''), 5000);
-      }
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Failed to parse timetable');
-      setTimeout(() => setErrorMessage(''), 5000);
-    } finally {
-      setIsParsingPdf(false);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
     }
   };
 
-  // Toggle selection of an extracted entry
-  const toggleExtractedSelection = (index: number) => {
-    const newSelected = new Set(selectedExtracted);
-    if (newSelected.has(index)) {
-      newSelected.delete(index);
-    } else {
-      newSelected.add(index);
-    }
-    setSelectedExtracted(newSelected);
-  };
+  const addCsvToForms = () => {
+    if (csvData.length === 0) return;
 
-  // Add selected extracted entries to the form list
-  const addExtractedToForms = () => {
-    if (!parseResult || !selectedSemester || !selectedCourse || !selectedDivision) {
-      setErrorMessage('Please select semester, course, and division first');
-      setTimeout(() => setErrorMessage(''), 3000);
-      return;
-    }
-
-    const selectedEntries = parseResult.entries.filter((_, i) => selectedExtracted.has(i));
-    
-    if (selectedEntries.length === 0) {
-      setErrorMessage('Please select at least one entry to add');
-      setTimeout(() => setErrorMessage(''), 3000);
-      return;
-    }
-
-    const newForms: FormEntry[] = [];
-    
-    for (const entry of selectedEntries) {
-      if (!entry.facultyName || !entry.facultyEmail) continue;
-
-      const formEntry: FormEntry = {
-        subjectName: entry.subjectCode,
-        facultyName: entry.facultyName,
-        facultyEmail: entry.facultyEmail,
-        division: selectedDivision,
-        semester: selectedSemester,
-        course: selectedCourse,
-        formType: entry.isLab ? 'batch' : 'division',
-        ...(entry.isLab && entry.batch && { batch: `${selectedDivision}${entry.batch.slice(-1)}` }),
-      };
-
-      // Check for duplicates
-      const isDuplicate = [...generatedForms, ...newForms].some(f =>
-        f.subjectName.toLowerCase() === formEntry.subjectName.toLowerCase() &&
-        f.facultyEmail.toLowerCase() === formEntry.facultyEmail.toLowerCase() &&
-        f.division === formEntry.division &&
-        f.semester === formEntry.semester &&
-        f.course === formEntry.course &&
-        f.batch === formEntry.batch
+    const newForms = csvData.filter(form => {
+      return !generatedForms.some(f =>
+        f.subjectName.toLowerCase() === form.subjectName.toLowerCase() &&
+        f.facultyEmail.toLowerCase() === form.facultyEmail.toLowerCase() &&
+        f.division === form.division &&
+        f.semester === form.semester &&
+        f.course === form.course &&
+        f.batch === form.batch
       );
-
-      if (!isDuplicate) {
-        newForms.push(formEntry);
-      }
-    }
+    });
 
     if (newForms.length > 0) {
       setGeneratedForms([...generatedForms, ...newForms]);
       setSuccessMessage(`Added ${newForms.length} form(s) to the list`);
       setTimeout(() => setSuccessMessage(''), 3000);
     } else {
-      setErrorMessage('All selected entries already exist in the list');
+      setErrorMessage('All forms from CSV already exist in the list');
       setTimeout(() => setErrorMessage(''), 3000);
     }
 
-    // Clear parse result after adding
-    setParseResult(null);
-    setSelectedExtracted(new Set());
+    setCsvData([]);
   };
 
   return (
@@ -390,7 +383,7 @@ function GenerateFormsContent() {
       <div className="bg-white rounded-2xl border border-gray-100 p-4 mb-6">
         <div className="flex gap-2">
           <button
-            onClick={() => { setInputMode('manual'); setParseResult(null); }}
+            onClick={() => { setInputMode('manual'); setCsvData([]); }}
             className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-colors ${
               inputMode === 'manual'
                 ? 'bg-gray-900 text-white'
@@ -400,222 +393,100 @@ function GenerateFormsContent() {
             Manual Entry
           </button>
           <button
-            onClick={() => setInputMode('timetable')}
+            onClick={() => setInputMode('csv')}
             className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-colors ${
-              inputMode === 'timetable'
+              inputMode === 'csv'
                 ? 'bg-gray-900 text-white'
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
             }`}
           >
-            Upload Timetable
+            Upload CSV
           </button>
         </div>
       </div>
 
-      {inputMode === 'timetable' ? (
-        /* Timetable Upload Mode */
+      {inputMode === 'csv' ? (
+        /* CSV Upload Mode */
         <div className="bg-white rounded-2xl border border-gray-100 p-6 mb-6">
-          <h2 className="text-sm font-semibold text-gray-900 mb-4">Upload Timetable PDF</h2>
+          <h2 className="text-sm font-semibold text-gray-900 mb-2">Upload CSV File</h2>
           <p className="text-xs text-gray-500 mb-4">
-            Upload your timetable PDF. The system will extract subject-faculty mappings automatically.
-            <br />
-            <span className="text-gray-400">Format: &quot;ML B305 PPM&quot; (Theory) or &quot;B2 ML B307C PPM&quot; (Lab)</span>
+            Upload your CSV file using the template headers expected by the parser.
           </p>
 
-          {/* Semester, Course, Division Selection */}
-          <div className="grid grid-cols-3 gap-3 mb-4">
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Semester</label>
-              <select
-                value={selectedSemester}
-                onChange={(e) => setSelectedSemester(e.target.value)}
-                className="w-full px-2.5 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              >
-                <option value="">Select</option>
-                {semesters.map(s => (
-                  <option key={s.value} value={s.value}>Sem {s.value}</option>
-                ))}
-              </select>
+          {csvError && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+              {csvError}
             </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Course</label>
-              <select
-                value={selectedCourse}
-                onChange={(e) => setSelectedCourse(e.target.value)}
-                className="w-full px-2.5 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              >
-                <option value="">Select</option>
-                {courses.map(c => (
-                  <option key={c.value} value={c.value}>{c.value}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Division</label>
-              <select
-                value={selectedDivision}
-                onChange={(e) => setSelectedDivision(e.target.value)}
-                className="w-full px-2.5 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              >
-                <option value="">Select</option>
-                {divisions.map(div => (
-                  <option key={div} value={div}>Div {div}</option>
-                ))}
-              </select>
-            </div>
-          </div>
+          )}
 
-          {/* File Upload - Only enabled when semester, course, division are selected */}
           <div className="mb-4">
             <input
               ref={fileInputRef}
               type="file"
-              accept=".pdf"
-              onChange={handleFileUpload}
+              accept=".csv"
+              onChange={handleCsvUpload}
               className="hidden"
-              id="timetable-upload"
-              disabled={!selectedSemester || !selectedCourse || !selectedDivision}
+              id="csv-upload"
+              disabled={isLoadingFaculty}
             />
             <label
-              htmlFor="timetable-upload"
+              htmlFor="csv-upload"
               className={`flex items-center justify-center gap-2 w-full py-3 px-4 border-2 border-dashed rounded-xl transition-colors ${
-                !selectedSemester || !selectedCourse || !selectedDivision
+                isLoadingFaculty
                   ? 'border-gray-200 bg-gray-50 cursor-not-allowed opacity-60'
-                  : isParsingPdf
-                    ? 'border-gray-200 bg-gray-50 cursor-wait'
-                    : 'border-gray-300 hover:border-blue-400 hover:bg-blue-50 cursor-pointer'
+                  : 'border-gray-300 hover:border-blue-400 hover:bg-blue-50 cursor-pointer'
               }`}
             >
-              {!selectedSemester || !selectedCourse || !selectedDivision ? (
-                <>
-                  <svg className="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                  </svg>
-                  <span className="text-sm text-gray-400">Select semester, course & division first</span>
-                </>
-              ) : isParsingPdf ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                  <span className="text-sm text-gray-600">Parsing PDF...</span>
-                </>
-              ) : (
-                <>
-                  <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                  </svg>
-                  <span className="text-sm text-gray-600">Click to upload timetable PDF</span>
-                </>
-              )}
+              <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+              </svg>
+              <span className="text-sm text-gray-600">
+                {isLoadingFaculty ? 'Loading faculty list...' : 'Click to upload CSV file'}
+              </span>
             </label>
           </div>
 
-          {/* Parse Results */}
-          {parseResult && (
+          {/* CSV Preview */}
+          {csvData.length > 0 && (
             <div className="space-y-4">
-              {parseResult.entries.length > 0 && (
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-sm font-medium text-gray-900">
-                      Found {parseResult.entries.length} valid mapping(s)
-                    </h3>
-                    <button
-                      onClick={() => {
-                        if (selectedExtracted.size === parseResult.entries.length) {
-                          setSelectedExtracted(new Set());
-                        } else {
-                          setSelectedExtracted(new Set(parseResult.entries.map((_, i) => i)));
-                        }
-                      }}
-                      className="text-xs text-blue-600 hover:text-blue-700"
-                    >
-                      {selectedExtracted.size === parseResult.entries.length ? 'Deselect All' : 'Select All'}
-                    </button>
-                  </div>
-                  <div className="space-y-2 max-h-64 overflow-y-auto">
-                    {parseResult.entries.map((entry, idx) => (
-                      <label
-                        key={idx}
-                        className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all ${
-                          selectedExtracted.has(idx) 
-                            ? 'bg-blue-50' 
-                            : 'bg-gray-50/80 hover:bg-gray-100'
-                        }`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={selectedExtracted.has(idx)}
-                          onChange={() => toggleExtractedSelection(idx)}
-                          className="w-4 h-4 text-blue-600 rounded-md border-gray-300 focus:ring-blue-500"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-semibold text-gray-800">{entry.subjectCode}</span>
-                            <span className="text-gray-300">→</span>
-                            <span className="text-sm text-gray-600">{entry.facultyName}</span>
-                            {entry.batch && <span className="text-xs text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded ml-1">Batch {entry.batch}</span>}
-                          </div>
-                          <div className={`text-xs mt-0.5 ${entry.isLab ? 'text-purple-500' : 'text-emerald-500'}`}>
-                            {entry.isLab ? 'Lab' : 'Theory'}
-                          </div>
-                        </div>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {parseResult.skippedEntries.length > 0 && (
-                <div className="border border-red-100 rounded-xl overflow-hidden">
-                  <button
-                    onClick={() => setShowSkippedEntries(!showSkippedEntries)}
-                    className="w-full flex items-center justify-between px-3 py-2.5 bg-red-50/50 hover:bg-red-50 transition-colors"
-                  >
-                    <span className="text-xs font-medium text-red-500">
-                      {parseResult.skippedEntries.length} skipped (unknown faculty codes)
-                    </span>
-                    <svg 
-                      className={`w-4 h-4 text-red-400 transition-transform ${showSkippedEntries ? 'rotate-180' : ''}`} 
-                      fill="none" 
-                      stroke="currentColor" 
-                      viewBox="0 0 24 24"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </button>
-                  {showSkippedEntries && (
-                    <div className="px-3 py-2 space-y-1.5 max-h-40 overflow-y-auto bg-white">
-                      {parseResult.skippedEntries.map((entry, idx) => (
-                        <div key={idx} className="flex items-center gap-2 text-xs">
-                          <span className="text-red-400">•</span>
-                          <span className="text-gray-600">{entry.subjectCode}</span>
-                          <span className="text-gray-300">→</span>
-                          <span className="text-red-500 font-medium">{entry.facultyCode}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {parseResult.entries.length > 0 && (
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-medium text-gray-900">
+                  Parsed {csvData.length} form(s)
+                </h3>
                 <button
-                  onClick={addExtractedToForms}
-                  disabled={selectedExtracted.size === 0 || !selectedSemester || !selectedCourse || !selectedDivision}
-                  className={`w-full py-2.5 px-4 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-all ${
-                    selectedExtracted.size > 0 && selectedSemester && selectedCourse && selectedDivision
-                      ? 'bg-blue-600 text-white hover:bg-blue-700 active:scale-[0.98]'
-                      : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                  }`}
+                  onClick={() => setCsvData([])}
+                  className="text-xs text-red-600 hover:text-red-700"
                 >
-                  <PlusIcon className="w-4 h-4" />
-                  Add {selectedExtracted.size} Selected to Forms
+                  Clear
                 </button>
-              )}
+              </div>
+              
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {csvData.map((form, idx) => (
+                  <div key={idx} className="p-3 bg-gray-50 rounded-lg">
+                    <div className="text-sm font-medium text-gray-900">{form.subjectName}</div>
+                    <div className="text-xs text-gray-500 mt-0.5">
+                      {form.facultyName} • Sem {form.semester} • {form.course} • Div {form.division}
+                      {form.batch && ` / ${form.batch}`}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <button
+                onClick={addCsvToForms}
+                className="w-full py-2.5 px-4 rounded-lg text-sm font-medium flex items-center justify-center gap-2 bg-blue-600 text-white hover:bg-blue-700 active:scale-[0.98] transition-all"
+              >
+                <PlusIcon className="w-4 h-4" />
+                Add All to Forms List
+              </button>
             </div>
           )}
+
+          {/* Sample CSV Download removed per request */}
         </div>
       ) : (
-        /* Manual Entry Mode - Single unified form */
+        /* Manual Entry Mode */
         <div className="bg-white rounded-2xl border border-gray-100 p-6 mb-6">
           <div className="space-y-4">
             {/* Row 1: Semester & Course */}
@@ -649,7 +520,7 @@ function GenerateFormsContent() {
             </div>
 
             {/* Row 2: Division & Batch (optional) */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-3">
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1.5">Division</label>
                 <select
@@ -665,7 +536,7 @@ function GenerateFormsContent() {
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1.5">
-                  Batch <span className="text-gray-400 font-normal">(optional - for lab)</span>
+                  Batch <span className="text-gray-400 font-normal">(for lab)</span>
                 </label>
                 <select
                   value={selectedBatch}
@@ -678,6 +549,16 @@ function GenerateFormsContent() {
                     <option key={batch} value={batch}>{batch} (Lab)</option>
                   ))}
                 </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1.5">Academic Year</label>
+                <input
+                  type="text"
+                  value={academicYear}
+                  onChange={(e) => setAcademicYear(e.target.value)}
+                  placeholder="e.g., 2025-26"
+                  className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition-colors"
+                />
               </div>
             </div>
 
@@ -796,7 +677,7 @@ function GenerateFormsContent() {
                     {form.subjectName}
                   </div>
                   <div className="text-xs text-gray-500 mt-0.5">
-                    {form.facultyName} • Sem {form.semester} • {getCourseName(form.course)} • Div {form.division}{form.batch && ` / ${form.batch}`}
+                    {form.academicYear} • {form.facultyName} • Sem {form.semester} • {getCourseName(form.course)} • Div {form.division}{form.batch && ` / ${form.batch}`}
                   </div>
                 </div>
                 <button
