@@ -6,6 +6,7 @@ import Link from 'next/link';
 import Toast from '@/components/Toast';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
+import { ArrowLeftIcon } from '@/components/Icons';
 
 interface FeedbackForm {
   id: string;
@@ -24,7 +25,6 @@ interface FeedbackParameter {
   id: string;
   text: string;
   position: number;
-  form_type: string;
   question_type: string;
 }
 
@@ -65,6 +65,7 @@ function FeedbackFormContent({ params }: PageProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [alreadySubmitted, setAlreadySubmitted] = useState(false);
   const [notAuthorized, setNotAuthorized] = useState(false);
+  const [pendingForms, setPendingForms] = useState<FeedbackForm[]>([]);
   
   // Use authenticated studentId - SECURITY: Never trust URL params for identity
   const studentId = userRole?.studentId || null;
@@ -80,10 +81,11 @@ function FeedbackFormContent({ params }: PageProps) {
 
       try {
         // Fetch form, student data, parameters, and responses
-        const [formRes, studentRes, responsesRes] = await Promise.all([
+        const [formRes, studentRes, responsesRes, formsRes] = await Promise.all([
           authFetch(`/api/forms/${params.formId}`),
           authFetch(`/api/admin/students/${studentId}`),
           authFetch('/api/responses'),
+          authFetch('/api/admin/forms'),
         ]);
 
         let formData: FeedbackForm | null = null;
@@ -104,15 +106,19 @@ function FeedbackFormContent({ params }: PageProps) {
           setResponses(allResponses);
         }
 
+        let allForms: FeedbackForm[] = [];
+        if (formsRes.ok) {
+          allForms = await formsRes.json();
+        }
+
         // Check if already submitted
         const hasSubmitted = allResponses.some(
           r => r.form_id === params.formId && r.student_id === studentId
         );
         setAlreadySubmitted(hasSubmitted);
 
-        // Determine form type and fetch parameters
-        const formType = formData?.batch ? 'lab' : 'theory';
-        const paramsRes = await authFetch(`/api/feedback-parameters?formType=${formType}`);
+        // Fetch questions for this specific form (snapshot or fallback to template)
+        const paramsRes = await authFetch(`/api/forms/${params.formId}/questions`);
         if (paramsRes.ok) {
           const paramsData = await paramsRes.json();
           setParameters(paramsData);
@@ -130,6 +136,25 @@ function FeedbackFormContent({ params }: PageProps) {
           if (!isAuthorized) {
             setNotAuthorized(true);
           }
+        }
+
+        // Build pending forms list for this student (ordered as received)
+        if (currentStudent && allForms.length > 0) {
+          const studentForms = allForms.filter(f => 
+            f.semester === currentStudent.semester &&
+            f.course === currentStudent.course &&
+            f.division === currentStudent.division &&
+            f.status === 'active' &&
+            (!f.batch || f.batch === currentStudent.batch)
+          );
+
+          const submittedSet = new Set(
+            allResponses
+              .filter(r => r.student_id === studentId)
+              .map(r => r.form_id)
+          );
+
+          setPendingForms(studentForms.filter(f => !submittedSet.has(f.id)));
         }
       } catch (error) {
         console.error('Error loading data:', error);
@@ -152,6 +177,16 @@ function FeedbackFormContent({ params }: PageProps) {
 
   const handleRatingChange = (parameterId: string, rating: number) => {
     setRatings(prev => ({ ...prev, [parameterId]: rating }));
+  };
+
+  const getNextFormId = () => {
+    if (!form) return null;
+    const pendingIds = pendingForms.map(f => f.id);
+    const currentIndex = pendingIds.indexOf(form.id);
+    if (currentIndex >= 0 && currentIndex < pendingIds.length - 1) {
+      return pendingIds[currentIndex + 1];
+    }
+    return null;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -181,8 +216,11 @@ function FeedbackFormContent({ params }: PageProps) {
       setToastMessage('Feedback submitted successfully!');
       setShowToast(true);
 
+      const nextFormId = getNextFormId();
+      const redirectTo = nextFormId ? `/student/feedback/${nextFormId}` : '/student/dashboard';
+
       setTimeout(() => {
-        router.push('/student/dashboard');
+        router.push(redirectTo);
       }, 1500);
     } catch (error) {
       setToastType('error');
@@ -238,6 +276,8 @@ function FeedbackFormContent({ params }: PageProps) {
   }
 
   const allParametersRated = parameters.every(p => ratings[p.id] !== undefined);
+  const nextFormId = getNextFormId();
+  const submitLabel = nextFormId ? 'Submit and Next' : 'Submit Feedback';
 
   return (
     <div className="max-w-xl mx-auto px-5 py-8">
@@ -250,9 +290,20 @@ function FeedbackFormContent({ params }: PageProps) {
       )}
 
       {/* Header */}
-      <div className="mb-10 text-center">
-        <h1 className="text-xl font-bold text-gray-900">{form.faculty_name}</h1>
-        <p className="text-sm text-gray-500 mt-1">{form.subject_name}</p>
+      <div className="mb-10">
+        <div className="flex items-center gap-3">
+          <Link
+            href="/student/dashboard"
+            className="w-10 h-10 flex items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-600 hover:text-gray-900 hover:border-gray-300 transition-colors"
+            aria-label="Back to dashboard"
+          >
+            <ArrowLeftIcon className="w-5 h-5" />
+          </Link>
+          <div>
+            <h1 className="text-xl font-bold text-gray-900">{form.faculty_name}</h1>
+            <p className="text-sm text-gray-500 mt-1">{form.subject_name}</p>
+          </div>
+        </div>
       </div>
 
       <form onSubmit={handleSubmit}>
@@ -268,7 +319,7 @@ function FeedbackFormContent({ params }: PageProps) {
               
               {/* Yes/No scale (for lab questions) */}
               {param.question_type === 'yes_no' && (
-                <div className="flex gap-3 mt-4">
+                <div className="grid grid-cols-2 gap-2 mt-4">
                   {[
                     { value: 1, label: 'Yes' },
                     { value: 0, label: 'No' },
@@ -279,7 +330,7 @@ function FeedbackFormContent({ params }: PageProps) {
                         key={option.value}
                         type="button"
                         onClick={() => handleRatingChange(param.id, option.value)}
-                        className={`flex-1 py-3 px-4 rounded-xl text-sm font-medium transition-all border-2 ${
+                        className={`py-2.5 sm:py-3 px-3 sm:px-4 rounded-lg sm:rounded-xl text-sm font-medium transition-all border-2 text-center ${
                           isSelected
                             ? option.value === 1
                               ? 'bg-green-50 border-green-400 text-green-700'
@@ -296,7 +347,7 @@ function FeedbackFormContent({ params }: PageProps) {
 
               {/* 3-option scale (Need improvement, Satisfactory, Good) */}
               {param.question_type === 'scale_3' && (
-                <div className="flex gap-3 mt-4">
+                <div className="grid grid-cols-3 gap-1.5 sm:gap-2 mt-4">
                   {[
                     { value: 1, label: 'Need improvement', color: 'red' },
                     { value: 2, label: 'Satisfactory', color: 'yellow' },
@@ -308,7 +359,7 @@ function FeedbackFormContent({ params }: PageProps) {
                         key={option.value}
                         type="button"
                         onClick={() => handleRatingChange(param.id, option.value)}
-                        className={`flex-1 py-3 px-4 rounded-xl text-sm font-medium transition-all border-2 ${
+                        className={`py-2.5 sm:py-3 px-1.5 sm:px-3 rounded-lg sm:rounded-xl text-[10px] sm:text-sm font-medium transition-all border-2 text-center ${
                           isSelected
                             ? option.color === 'red' 
                               ? 'bg-red-50 border-red-400 text-red-700'
@@ -332,7 +383,7 @@ function FeedbackFormContent({ params }: PageProps) {
                     <span>Poor</span>
                     <span>Excellent</span>
                   </div>
-                  <div className="grid grid-cols-10 gap-1.5">
+                  <div className="grid grid-cols-10 gap-1">
                     {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(rating => {
                       const isSelected = ratings[param.id] === rating;
                       return (
@@ -340,7 +391,7 @@ function FeedbackFormContent({ params }: PageProps) {
                           key={rating}
                           type="button"
                           onClick={() => handleRatingChange(param.id, rating)}
-                          className={`h-11 rounded-lg text-sm font-semibold transition-all ${
+                          className={`h-9 sm:h-11 rounded-md sm:rounded-lg text-xs sm:text-sm font-semibold transition-all ${
                             isSelected
                               ? rating <= 3 
                                 ? 'bg-red-500 text-white shadow-md'
@@ -360,13 +411,13 @@ function FeedbackFormContent({ params }: PageProps) {
 
               {/* Fallback for old 0-10 scale (backwards compatibility) */}
               {!param.question_type && (
-                <div className="grid grid-cols-11 gap-1.5 mt-4">
+                <div className="grid grid-cols-11 gap-1 mt-4">
                   {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(rating => (
                     <button
                       key={rating}
                       type="button"
                       onClick={() => handleRatingChange(param.id, rating)}
-                      className={`h-11 rounded-lg text-sm font-semibold transition-all ${
+                      className={`h-9 sm:h-11 rounded-md sm:rounded-lg text-xs sm:text-sm font-semibold transition-all ${
                         ratings[param.id] === rating
                           ? 'bg-gray-900 text-white shadow-md'
                           : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -405,7 +456,7 @@ function FeedbackFormContent({ params }: PageProps) {
               : 'bg-gray-100 text-gray-400 cursor-not-allowed'
           }`}
         >
-          {isSubmitting ? 'Submitting...' : 'Submit Feedback'}
+          {isSubmitting ? 'Submitting...' : submitLabel}
         </button>
       </form>
     </div>
