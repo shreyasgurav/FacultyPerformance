@@ -18,6 +18,7 @@ interface FeedbackForm {
   semester: number;
   year: string;
   course: string;
+  academic_year: string;
   status: string;
 }
 
@@ -30,14 +31,15 @@ interface FeedbackResponse {
   feedback_response_items: {
     parameter_id: string;
     rating: number;
+    question_text: string | null;
+    question_type: string | null;
   }[];
 }
 
-interface FeedbackParameter {
+interface FormQuestion {
   id: string;
   text: string;
   position: number;
-  form_type: string;
   question_type: string;
 }
  
@@ -48,16 +50,17 @@ function ReportContent() {
 
   const [form, setForm] = useState<FeedbackForm | null>(null);
   const [responses, setResponses] = useState<FeedbackResponse[]>([]);
-  const [parameters, setParameters] = useState<FeedbackParameter[]>([]);
+  const [formQuestions, setFormQuestions] = useState<FormQuestion[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     async function fetchData() {
       try {
-        const [formsRes, responsesRes, paramsRes] = await Promise.all([
+        // Fetch form, responses, and form-specific questions
+        const [formsRes, responsesRes, questionsRes] = await Promise.all([
           authFetch('/api/admin/forms'),
           authFetch('/api/responses'),
-          authFetch('/api/feedback-parameters'),
+          authFetch(`/api/forms/${formId}/questions`),  // Get form-specific questions
         ]);
 
         if (formsRes.ok) {
@@ -71,9 +74,9 @@ function ReportContent() {
           setResponses(responsesData.filter((r: FeedbackResponse) => r.form_id === formId));
         }
 
-        if (paramsRes.ok) {
-          const paramsData = await paramsRes.json();
-          setParameters(paramsData);
+        if (questionsRes.ok) {
+          const questionsData = await questionsRes.json();
+          setFormQuestions(questionsData);
         }
       } catch (error) {
         console.error('Error fetching data:', error);
@@ -85,59 +88,137 @@ function ReportContent() {
     fetchData();
   }, [formId]);
 
-  // Helper to normalize rating to 1-10 scale
+  // Helper to normalize rating to 0-10 scale based on question type
   const normalizeRating = (rating: number, questionType: string): number => {
     if (questionType === 'yes_no') {
-      return rating === 1 ? 10 : 1;
+      // yes_no: 1 = Yes (10), 0 = No (0)
+      return rating === 1 ? 10 : 0;
     } else if (questionType === 'scale_3') {
+      // scale_3: 1 = Need improvement (3.3), 2 = Satisfactory (6.6), 3 = Good (10)
       return (rating / 3) * 10;
     }
+    // scale_1_10: already 1-10
     return rating;
   };
 
-  // Calculate stats
+  // Get display text for rating based on question type
+  const getRatingDisplay = (avg: number, questionType: string): string => {
+    if (questionType === 'yes_no') {
+      const yesPercent = (avg * 100).toFixed(0);
+      return `${yesPercent}% Yes`;
+    } else if (questionType === 'scale_3') {
+      // avg is already normalized to 10, convert back to 3-scale for display
+      const scale3Avg = (avg / 10) * 3;
+      return scale3Avg.toFixed(1) + '/3';
+    }
+    return avg.toFixed(1) + '/10';
+  };
+
+  // Calculate stats - prefer embedded question data from responses, fallback to formQuestions
   const getStats = () => {
     if (!form) return null;
 
-    const formType = form.batch ? 'lab' : 'theory';
-    const formParameters = parameters.filter(p => p.form_type === formType);
+    // No responses yet - show empty state with form questions
+    if (responses.length === 0) {
+      return {
+        responseCount: 0,
+        avgRating: 0,
+        parameterAverages: formQuestions.map((q: FormQuestion, idx: number) => ({
+          id: q.id,
+          index: idx + 1,
+          text: q.text,
+          average: 0,
+          normalizedAvg: 0,
+          count: 0,
+          question_type: q.question_type || 'scale_1_10',
+        })),
+        comments: [],
+      };
+    }
 
-    let totalRating = 0;
-    let ratingCount = 0;
-
+    // Build question map - PRIORITY ORDER:
+    // 1. Embedded data from response items (most reliable, saved at submission time)
+    // 2. form_questions table (snapshot at form creation)
+    // 3. Default fallback
+    const questionMap = new Map<string, { text: string; type: string; position: number }>();
+    
+    // First, try to build from embedded response data (most reliable)
+    let positionCounter = 1;
     responses.forEach(resp => {
       resp.feedback_response_items.forEach(item => {
-        const param = formParameters.find(p => p.id === item.parameter_id);
-        if (param) {
-          totalRating += normalizeRating(item.rating, param.question_type);
-          ratingCount++;
+        if (item.question_text && item.question_type && !questionMap.has(item.parameter_id)) {
+          questionMap.set(item.parameter_id, {
+            text: item.question_text,
+            type: item.question_type,
+            position: positionCounter++,
+          });
         }
       });
     });
-
-    const avgRating = ratingCount > 0 ? totalRating / ratingCount : 0;
-
-    const parameterAverages = formParameters.map((param, idx) => {
-      let paramTotal = 0;
-      let paramCount = 0;
-
-      responses.forEach(resp => {
-        const item = resp.feedback_response_items.find(i => i.parameter_id === param.id);
-        if (item) {
-          paramTotal += item.rating;
-          paramCount++;
-        }
+    
+    // If no embedded data, fallback to formQuestions
+    if (questionMap.size === 0 && formQuestions.length > 0) {
+      formQuestions.forEach((q: FormQuestion, idx: number) => {
+        questionMap.set(q.id, { text: q.text, type: q.question_type, position: idx + 1 });
       });
+    }
+    
+    // If still empty but we have responses, create placeholder entries
+    if (questionMap.size === 0 && responses.length > 0) {
+      responses[0].feedback_response_items.forEach((item, idx) => {
+        questionMap.set(item.parameter_id, {
+          text: `Question ${idx + 1}`,
+          type: item.question_type || 'scale_1_10',
+          position: idx + 1,
+        });
+      });
+    }
 
-      return {
-        id: param.id,
-        index: idx + 1,
-        text: param.text,
-        average: paramCount > 0 ? paramTotal / paramCount : 0,
-        count: paramCount,
-        question_type: param.question_type || 'scale_1_10',
-      };
+    // Calculate overall average: average of each response's average
+    let totalResponseAvg = 0;
+    responses.forEach(resp => {
+      let respTotal = 0;
+      let respCount = 0;
+      resp.feedback_response_items.forEach(item => {
+        // Use embedded question_type if available, otherwise lookup
+        const questionType = item.question_type || questionMap.get(item.parameter_id)?.type || 'scale_1_10';
+        respTotal += normalizeRating(item.rating, questionType);
+        respCount++;
+      });
+      if (respCount > 0) {
+        totalResponseAvg += respTotal / respCount;
+      }
     });
+    const avgRating = totalResponseAvg / responses.length;
+
+    // Calculate per-question averages using the question map
+    const parameterAverages = Array.from(questionMap.entries())
+      .sort((a, b) => a[1].position - b[1].position)
+      .map(([paramId, question], idx) => {
+        let paramTotal = 0;
+        let paramCount = 0;
+
+        responses.forEach(resp => {
+          const item = resp.feedback_response_items.find(i => i.parameter_id === paramId);
+          if (item) {
+            paramTotal += item.rating;
+            paramCount++;
+          }
+        });
+
+        const rawAvg = paramCount > 0 ? paramTotal / paramCount : 0;
+        const normalizedAvg = normalizeRating(rawAvg, question.type);
+
+        return {
+          id: paramId,
+          index: idx + 1,
+          text: question.text,
+          average: rawAvg,
+          normalizedAvg,
+          count: paramCount,
+          question_type: question.type || 'scale_1_10',
+        };
+      });
 
     const comments = responses
       .filter(r => r.comment && r.comment.trim() && !r.comment.includes('__original_student_email:'))
@@ -215,7 +296,7 @@ function ReportContent() {
               <p className="text-sm text-gray-500 mt-0.5">{form.subject_code}</p>
             )}
             <p className="text-sm text-gray-500 mt-1">
-              {form.faculty_name} · Sem {form.semester} · {form.course === 'AIDS' ? 'AI & DS' : 'IT'} · Div {form.division}{form.batch ? ` / Batch ${form.batch}` : ''}
+              {form.academic_year} · {form.faculty_name} · Sem {form.semester} · {form.course === 'AIDS' ? 'AI & DS' : 'IT'} · Div {form.division}{form.batch ? ` / Batch ${form.batch}` : ''}
             </p>
             {stats && (
               <p className="text-xs text-gray-400 mt-2">
@@ -248,23 +329,26 @@ function ReportContent() {
             <h2 className="text-base font-semibold text-gray-900 mb-5">Question-wise Ratings</h2>
             <div className="space-y-5">
               {stats.parameterAverages.map(param => {
-                let normalizedRating = 0;
-                let percentage = 0;
-
-                if (param.question_type === 'yes_no') {
-                  normalizedRating = param.average === 1 ? 10 : (param.average * 9 + 1);
-                  percentage = normalizedRating * 10;
-                } else if (param.question_type === 'scale_3') {
-                  normalizedRating = (param.average / 3) * 10;
-                  percentage = normalizedRating * 10;
-                } else {
-                  normalizedRating = param.average;
-                  percentage = normalizedRating * 10;
-                }
+                // Use normalized average (0-10 scale) for progress bar and color
+                const normalizedRating = param.normalizedAvg;
+                const percentage = normalizedRating * 10; // 0-100%
 
                 const isGood = normalizedRating >= 7;
                 const isMedium = normalizedRating >= 5;
-                const displayValue = normalizedRating.toFixed(1);
+
+                // Display value based on question type
+                let displayValue = '';
+                if (param.question_type === 'yes_no') {
+                  // For yes/no, show percentage of "Yes" responses
+                  const yesPercent = (param.average * 100).toFixed(0);
+                  displayValue = `${yesPercent}% Yes`;
+                } else if (param.question_type === 'scale_3') {
+                  // For scale_3, show average out of 3
+                  displayValue = `${param.average.toFixed(1)}/3`;
+                } else {
+                  // For scale_1_10, show average out of 10
+                  displayValue = `${param.average.toFixed(1)}/10`;
+                }
 
                 return (
                   <div key={param.id}>
@@ -272,7 +356,7 @@ function ReportContent() {
                       <span className="text-sm text-gray-600 leading-snug flex-1 pr-3">
                         {param.text}
                       </span>
-                      <span className={`text-sm font-bold tabular-nums ${
+                      <span className={`text-sm font-bold tabular-nums whitespace-nowrap ${
                         isGood ? 'text-green-600' :
                         isMedium ? 'text-yellow-600' : 'text-red-600'
                       }`}>

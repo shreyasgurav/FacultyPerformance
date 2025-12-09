@@ -182,28 +182,28 @@ function StudentDashboardContent() {
       {/* Forms table */}
       <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full table-fixed">
+          <table className="w-full">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50/50">
-                <th className="text-left py-2.5 sm:py-3 px-3 sm:px-5 text-[11px] sm:text-xs font-medium text-gray-400 uppercase tracking-wider w-5/12 sm:w-4/12">Subject</th>
-                <th className="text-left py-2.5 sm:py-3 px-2.5 sm:px-4 text-[11px] sm:text-xs font-medium text-gray-400 uppercase tracking-wider w-3/12">Faculty</th>
-                <th className="text-left py-2.5 sm:py-3 px-2.5 sm:px-4 text-[11px] sm:text-xs font-medium text-gray-400 uppercase tracking-wider w-2/12">Class</th>
-                <th className="text-left py-2.5 sm:py-3 px-3 sm:px-5 text-[11px] sm:text-xs font-medium text-gray-400 uppercase tracking-wider w-2/12">Status</th>
+                <th className="text-left py-3 px-5 text-xs font-medium text-gray-400 uppercase tracking-wider">Subject</th>
+                <th className="text-left py-3 px-4 text-xs font-medium text-gray-400 uppercase tracking-wider">Faculty</th>
+                <th className="text-left py-3 px-4 text-xs font-medium text-gray-400 uppercase tracking-wider">Class</th>
+                <th className="text-left py-3 px-5 text-xs font-medium text-gray-400 uppercase tracking-wider">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
               {pendingForms.map((form) => (
                 <tr key={form.id} className="hover:bg-gray-50/50 transition-colors">
-                  <td className="py-2.5 sm:py-3 px-3 sm:px-5 align-top min-w-0">
-                    <p className="text-sm sm:text-base font-medium text-gray-900 break-words">{form.subject_name}</p>
-                    {form.subject_code && <p className="text-[11px] sm:text-xs text-gray-400 break-words">{form.subject_code}</p>}
+                  <td className="py-3 px-5">
+                    <p className="text-sm font-medium text-gray-900">{form.subject_name}</p>
+                    {form.subject_code && <p className="text-xs text-gray-400">{form.subject_code}</p>}
                   </td>
-                  <td className="py-2.5 sm:py-3 px-2.5 sm:px-4 text-[13px] sm:text-sm text-gray-600 break-words">{form.faculty_name}</td>
-                  <td className="py-2.5 sm:py-3 px-2.5 sm:px-4 text-[13px] sm:text-sm text-gray-600">{form.division}{form.batch ? ` / ${form.batch}` : ''}</td>
-                  <td className="py-2.5 sm:py-3 px-3 sm:px-5">
+                  <td className="py-3 px-4 text-sm text-gray-600">{form.faculty_name}</td>
+                  <td className="py-3 px-4 text-sm text-gray-600">{form.division}{form.batch ? ` / ${form.batch}` : ''}</td>
+                  <td className="py-3 px-5">
                     <Link
                       href={`/student/feedback/${form.id}`}
-                      className="inline-flex items-center justify-center px-3 py-2 bg-gray-900 text-white text-[11px] sm:text-xs font-medium rounded-lg hover:bg-gray-800 transition-colors w-full sm:w-auto"
+                      className="inline-flex items-center px-3 py-1.5 bg-gray-900 text-white text-xs font-medium rounded-lg hover:bg-gray-800 transition-colors"
                     >
                       Fill Feedback
                     </Link>
@@ -212,14 +212,14 @@ function StudentDashboardContent() {
               ))}
               {completedForms.map((form) => (
                 <tr key={form.id} className="bg-green-50/30 hover:bg-green-50/50 transition-colors">
-                  <td className="py-2.5 sm:py-3 px-3 sm:px-5 align-top min-w-0">
-                    <p className="text-sm sm:text-base font-medium text-gray-900 break-words">{form.subject_name}</p>
-                    {form.subject_code && <p className="text-[11px] sm:text-xs text-gray-400 break-words">{form.subject_code}</p>}
+                  <td className="py-3 px-5">
+                    <p className="text-sm font-medium text-gray-900">{form.subject_name}</p>
+                    {form.subject_code && <p className="text-xs text-gray-400">{form.subject_code}</p>}
                   </td>
-                  <td className="py-2.5 sm:py-3 px-2.5 sm:px-4 text-[13px] sm:text-sm text-gray-600 break-words">{form.faculty_name}</td>
-                  <td className="py-2.5 sm:py-3 px-2.5 sm:px-4 text-[13px] sm:text-sm text-gray-600">{form.division}{form.batch ? ` / ${form.batch}` : ''}</td>
-                  <td className="py-2.5 sm:py-3 px-3 sm:px-5">
-                    <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] sm:text-xs font-medium bg-green-100 text-green-700">
+                  <td className="py-3 px-4 text-sm text-gray-600">{form.faculty_name}</td>
+                  <td className="py-3 px-4 text-sm text-gray-600">{form.division}{form.batch ? ` / ${form.batch}` : ''}</td>
+                  <td className="py-3 px-5">
+                    <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
                       Submitted
                     </span>
                   </td>

@@ -18,6 +18,7 @@ interface FeedbackForm {
   semester: number;
   year: string;
   course: string;
+  academic_year: string;
   status: string;
 }
 
@@ -30,14 +31,15 @@ interface FeedbackResponse {
   feedback_response_items: {
     parameter_id: string;
     rating: number;
+    question_text: string | null;
+    question_type: string | null;
   }[];
 }
 
-interface FeedbackParameter {
+interface FormQuestion {
   id: string;
   text: string;
   position: number;
-  form_type: string;
   question_type: string;
 }
 
@@ -48,20 +50,20 @@ function FacultyReportContent() {
 
   const [forms, setForms] = useState<FeedbackForm[]>([]);
   const [responses, setResponses] = useState<FeedbackResponse[]>([]);
-  const [parameters, setParameters] = useState<FeedbackParameter[]>([]);
+  const [formQuestionsMap, setFormQuestionsMap] = useState<Record<string, FormQuestion[]>>({});
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     async function fetchData() {
       try {
-        const [formsRes, responsesRes, paramsRes] = await Promise.all([
+        const [formsRes, responsesRes] = await Promise.all([
           authFetch('/api/admin/forms'),
           authFetch('/api/responses'),
-          authFetch('/api/feedback-parameters'),
         ]);
 
+        let formsData: FeedbackForm[] = [];
         if (formsRes.ok) {
-          const formsData = await formsRes.json();
+          formsData = await formsRes.json();
           setForms(formsData);
         }
 
@@ -70,10 +72,22 @@ function FacultyReportContent() {
           setResponses(responsesData);
         }
 
-        if (paramsRes.ok) {
-          const paramsData = await paramsRes.json();
-          setParameters(paramsData);
-        }
+        // Fetch questions for each form that belongs to this faculty
+        const facultyFormIds = formsData
+          .filter(f => f.faculty_email.toLowerCase() === facultyEmail.toLowerCase())
+          .map(f => f.id);
+
+        const questionsMap: Record<string, FormQuestion[]> = {};
+        await Promise.all(
+          facultyFormIds.map(async (formId) => {
+            const res = await authFetch(`/api/forms/${formId}/questions`);
+            if (res.ok) {
+              questionsMap[formId] = await res.json();
+            }
+          })
+        );
+        setFormQuestionsMap(questionsMap);
+
       } catch (error) {
         console.error('Error fetching data:', error);
       } finally {
@@ -82,7 +96,7 @@ function FacultyReportContent() {
     }
 
     fetchData();
-  }, []);
+  }, [facultyEmail]);
 
   // Filter forms for this faculty
   const facultyForms = forms.filter(f => 
@@ -91,68 +105,81 @@ function FacultyReportContent() {
 
   const facultyName = facultyForms[0]?.faculty_name || 'Faculty';
 
-  // Helper to normalize rating to 1-10 scale
+  // Helper to normalize rating to 0-10 scale based on question type
   const normalizeRating = (rating: number, questionType: string): number => {
     if (questionType === 'yes_no') {
-      return rating === 1 ? 10 : 1;
+      // yes_no: 1 = Yes (10), 0 = No (0)
+      return rating === 1 ? 10 : 0;
     } else if (questionType === 'scale_3') {
+      // scale_3: 1 = Need improvement (3.3), 2 = Satisfactory (6.6), 3 = Good (10)
       return (rating / 3) * 10;
     }
+    // scale_1_10: already 1-10
     return rating;
   };
 
-  // Calculate overall stats for faculty
+  // Calculate average rating for a single response
+  // Uses embedded question_type from response items (preferred) or falls back to formQuestionsMap
+  const getResponseAverage = (resp: FeedbackResponse, formId: string): number => {
+    if (resp.feedback_response_items.length === 0) return 0;
+
+    const formQuestions = formQuestionsMap[formId] || [];
+    let totalNormalized = 0;
+    let count = 0;
+
+    resp.feedback_response_items.forEach(item => {
+      // Prefer embedded question_type from response, fallback to form questions map
+      let questionType = item.question_type;
+      if (!questionType) {
+        const question = formQuestions.find((q: FormQuestion) => q.id === item.parameter_id);
+        questionType = question?.question_type || 'scale_1_10';
+      }
+      totalNormalized += normalizeRating(item.rating, questionType);
+      count++;
+    });
+
+    return count > 0 ? totalNormalized / count : 0;
+  };
+
+  // Calculate overall stats for faculty (average of all response averages)
   const getOverallStats = () => {
     const formIds = facultyForms.map(f => f.id);
     const facultyResponses = responses.filter(r => formIds.includes(r.form_id));
 
-    let totalRating = 0;
-    let ratingCount = 0;
+    if (facultyResponses.length === 0) {
+      return { formCount: facultyForms.length, responseCount: 0, avgRating: 0 };
+    }
+
+    let totalResponseAvg = 0;
 
     facultyResponses.forEach(resp => {
-      const form = forms.find(f => f.id === resp.form_id);
-      const formType = form?.batch ? 'lab' : 'theory';
-      const formParameters = parameters.filter(p => p.form_type === formType);
-
-      resp.feedback_response_items.forEach(item => {
-        const param = formParameters.find(p => p.id === item.parameter_id);
-        if (param) {
-          totalRating += normalizeRating(item.rating, param.question_type);
-          ratingCount++;
-        }
-      });
+      totalResponseAvg += getResponseAverage(resp, resp.form_id);
     });
 
     return {
       formCount: facultyForms.length,
       responseCount: facultyResponses.length,
-      avgRating: ratingCount > 0 ? totalRating / ratingCount : 0,
+      avgRating: totalResponseAvg / facultyResponses.length,
     };
   };
 
-  // Calculate stats for a single form
+  // Calculate stats for a single form (average of all response averages for this form)
   const getFormStats = (formId: string) => {
-    const form = forms.find(f => f.id === formId);
     const formResponses = responses.filter(r => r.form_id === formId);
-    const formType = form?.batch ? 'lab' : 'theory';
-    const formParameters = parameters.filter(p => p.form_type === formType);
 
-    let totalRating = 0;
-    let ratingCount = 0;
+    if (formResponses.length === 0) {
+      return { responseCount: 0, avgRating: 0 };
+    }
+
+    let totalResponseAvg = 0;
 
     formResponses.forEach(resp => {
-      resp.feedback_response_items.forEach(item => {
-        const param = formParameters.find(p => p.id === item.parameter_id);
-        if (param) {
-          totalRating += normalizeRating(item.rating, param.question_type);
-          ratingCount++;
-        }
-      });
+      totalResponseAvg += getResponseAverage(resp, formId);
     });
 
     return {
       responseCount: formResponses.length,
-      avgRating: ratingCount > 0 ? totalRating / ratingCount : 0,
+      avgRating: totalResponseAvg / formResponses.length,
     };
   };
 
@@ -235,7 +262,7 @@ function FacultyReportContent() {
                       {form.subject_name}
                     </p>
                     <p className="text-xs text-gray-500 mt-0.5">
-                      Sem {form.semester} · {form.course === 'AIDS' ? 'AI & DS' : 'IT'} · Div {form.division}{form.batch ? ` / Batch ${form.batch}` : ''}
+                      {form.academic_year} · Sem {form.semester} · {form.course === 'AIDS' ? 'AI & DS' : 'IT'} · Div {form.division}{form.batch ? ` / Batch ${form.batch}` : ''}
                     </p>
                   </div>
                   <div className="flex items-center gap-6">

@@ -38,27 +38,42 @@ model feedback_forms {
   batch              String?               @db.VarChar(10)
   semester           Int                   @db.TinyInt
   course             String                @default("IT") @db.VarChar(50)
+  academic_year      String                @default("2025-26") @db.VarChar(10)
   status             feedback_forms_status @default(active)
   created_at         DateTime?             @default(now()) @db.Timestamp(0)
   feedback_responses feedback_responses[]
+  form_questions     form_questions[]
+}
+
+// Snapshot of questions for each form (copied from feedback_parameters at form creation)
+model form_questions {
+  id                BigInt         @id @default(autoincrement())
+  form_id           String         @db.VarChar(50)
+  original_param_id String         @db.VarChar(50)  // Original parameter ID for response tracking
+  question_text     String         @db.VarChar(255)
+  position          Int
+  question_type     String         @default("scale_1_10") @db.VarChar(30)
+  feedback_forms    feedback_forms @relation(fields: [form_id], references: [id], onDelete: Cascade)
+
+  @@index([form_id], map: "form_id")
 }
 
 model feedback_parameters {
-  id                      String                    @id @db.VarChar(50)
-  text                    String                    @db.VarChar(255)
-  position                Int
-  form_type               String                    @default("theory") @db.VarChar(20)
-  question_type           String                    @default("scale_1_10") @db.VarChar(30)
-  feedback_response_items feedback_response_items[]
+  id            String @id @db.VarChar(50)
+  text          String @db.VarChar(255)
+  position      Int
+  form_type     String @default("theory") @db.VarChar(20)
+  question_type String @default("scale_1_10") @db.VarChar(30)
 }
 
 model feedback_response_items {
   id                  BigInt              @id @default(autoincrement())
   response_id         String              @db.VarChar(50)
-  parameter_id        String              @db.VarChar(50)
+  parameter_id        String              @db.VarChar(50)  // Just a reference string, no FK constraint
   rating              Int                 @db.TinyInt
+  question_text       String?             @db.VarChar(255)  // Snapshot of question at submission time
+  question_type       String?             @db.VarChar(30)   // Snapshot of question type at submission time
   feedback_responses  feedback_responses  @relation(fields: [response_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "feedback_response_items_ibfk_1")
-  feedback_parameters feedback_parameters @relation(fields: [parameter_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "feedback_response_items_ibfk_2")
 
   @@index([parameter_id], map: "parameter_id")
   @@index([response_id], map: "response_id")

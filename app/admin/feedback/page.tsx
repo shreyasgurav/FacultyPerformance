@@ -18,6 +18,7 @@ interface FeedbackForm {
   batch: string | null;
   semester: number;
   course: string;
+  academic_year: string;
   status: string;
 }
 
@@ -260,7 +261,7 @@ function FeedbackMonitoringContent() {
                         </td>
                         <td className="py-3 px-4 text-sm text-gray-600">{form.faculty_name}</td>
                         <td className="py-3 px-4 text-sm text-gray-600">
-                          Sem {form.semester} · {form.course === 'AIDS' ? 'AI&DS' : 'IT'}
+                          {form.academic_year} · Sem {form.semester} · {form.course === 'AIDS' ? 'AI&DS' : 'IT'}
                         </td>
                         <td className="py-3 px-4 text-sm text-gray-600">
                           {form.division}{form.batch ? ` / ${form.batch}` : ''}

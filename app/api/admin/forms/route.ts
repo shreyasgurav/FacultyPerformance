@@ -69,6 +69,7 @@ export async function DELETE(request: NextRequest) {
 }
 
 // POST create new feedback form(s) - ADMIN ONLY
+// Optimized for bulk creation with parallel processing
 export async function POST(request: NextRequest) {
   const auth = await verifyAuth(request);
   if (!hasRole(auth, ['admin'])) {
@@ -83,10 +84,57 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No forms provided' }, { status: 400 });
     }
 
-    const createdForms = [];
+    // Calculate default academic year once
+    const defaultAcademicYear = (() => {
+      const now = new Date();
+      const month = now.getMonth();
+      const year = now.getFullYear();
+      if (month >= 5) {
+        return `${year}-${(year + 1).toString().slice(-2)}`;
+      } else {
+        return `${year - 1}-${year.toString().slice(-2)}`;
+      }
+    })();
 
-    for (const form of forms) {
-      const { subjectName, subjectCode, facultyName, facultyEmail, division, batch, semester, course } = form;
+    // Pre-fetch question templates for both form types (only 2 queries instead of N)
+    const [theoryQuestions, labQuestions] = await Promise.all([
+      prisma.feedback_parameters.findMany({
+        where: { form_type: 'theory' },
+        orderBy: { position: 'asc' },
+      }),
+      prisma.feedback_parameters.findMany({
+        where: { form_type: 'lab' },
+        orderBy: { position: 'asc' },
+      }),
+    ]);
+
+    // Prepare all form data and question data in memory first
+    const formDataList: Array<{
+      id: string;
+      subject_name: string;
+      subject_code: string | null;
+      faculty_name: string;
+      faculty_email: string;
+      division: string;
+      batch: string | null;
+      semester: number;
+      course: string;
+      academic_year: string;
+      status: 'active';
+    }> = [];
+
+    const allQuestionData: Array<{
+      form_id: string;
+      original_param_id: string;
+      question_text: string;
+      position: number;
+      question_type: string;
+    }> = [];
+
+    // Process all forms in memory (no DB calls yet)
+    for (let i = 0; i < forms.length; i++) {
+      const form = forms[i];
+      const { subjectName, subjectCode, facultyName, facultyEmail, division, batch, semester, course, academicYear } = form;
 
       if (!subjectName || !facultyName || !facultyEmail || !division || !semester) {
         continue; // Skip invalid entries
@@ -97,29 +145,57 @@ export async function POST(request: NextRequest) {
         continue; // Skip invalid semester
       }
 
-      const formId = `form_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      // Generate unique form ID using index to ensure uniqueness
+      const formId = `form_${Date.now()}_${i}_${Math.random().toString(36).substr(2, 6)}`;
+      const isLab = !!batch;
+      const questionTemplates = isLab ? labQuestions : theoryQuestions;
 
-      const created = await prisma.feedback_forms.create({
-        data: {
-          id: formId,
-          subject_name: subjectName,
-          subject_code: subjectCode || null,
-          faculty_name: facultyName,
-          faculty_email: facultyEmail.toLowerCase(),
-          division,
-          batch: batch || null,
-          semester: semesterNum,
-          course: course || 'IT',
-          status: 'active',
-        },
+      // Add form data
+      formDataList.push({
+        id: formId,
+        subject_name: subjectName,
+        subject_code: subjectCode || null,
+        faculty_name: facultyName,
+        faculty_email: facultyEmail.toLowerCase(),
+        division,
+        batch: batch || null,
+        semester: semesterNum,
+        course: course || 'IT',
+        academic_year: academicYear || defaultAcademicYear,
+        status: 'active',
       });
 
-      createdForms.push(created);
+      // Add question data for this form
+      for (const q of questionTemplates) {
+        allQuestionData.push({
+          form_id: formId,
+          original_param_id: q.id,
+          question_text: q.text,
+          position: q.position,
+          question_type: q.question_type,
+        });
+      }
+    }
+
+    if (formDataList.length === 0) {
+      return NextResponse.json({ error: 'No valid forms to create' }, { status: 400 });
+    }
+
+    // Bulk create all forms at once
+    await prisma.feedback_forms.createMany({
+      data: formDataList,
+    });
+
+    // Bulk create all questions at once
+    if (allQuestionData.length > 0) {
+      await prisma.form_questions.createMany({
+        data: allQuestionData,
+      });
     }
 
     return NextResponse.json({ 
-      message: `Created ${createdForms.length} form(s)`,
-      forms: createdForms 
+      message: `Created ${formDataList.length} form(s)`,
+      count: formDataList.length,
     }, { status: 201 });
 
   } catch (error: unknown) {

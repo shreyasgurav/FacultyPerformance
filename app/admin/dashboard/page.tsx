@@ -7,6 +7,7 @@ import {
   ClipboardIcon,
   UploadIcon,
   ChartIcon,
+  EditIcon,
 } from '@/components/Icons';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
@@ -45,6 +46,14 @@ function AdminDashboardContent() {
       icon: <ChartIcon className="w-8 h-8" />,
       bgColor: 'bg-orange-100',
       textColor: 'text-orange-600',
+    },
+    {
+      title: 'Form Editor',
+      description: 'Customize feedback form questions and options',
+      href: '/admin/form-editor',
+      icon: <EditIcon className="w-8 h-8" />,
+      bgColor: 'bg-pink-100',
+      textColor: 'text-pink-600',
     },
   ];
 

@@ -32,6 +32,8 @@ export async function GET(request: NextRequest) {
           select: {
             parameter_id: true,
             rating: true,
+            question_text: true,
+            question_type: true,
           },
         },
       },
@@ -117,6 +119,32 @@ export async function POST(request: NextRequest) {
         throw new Error('DUPLICATE_SUBMISSION');
       }
 
+      // Get form-specific questions to snapshot with response
+      const formQuestions = await tx.form_questions.findMany({
+        where: { form_id: formId },
+        orderBy: { position: 'asc' },
+      });
+
+      // Build a map of parameter_id -> question details
+      const questionMap = new Map<string, { text: string; type: string }>();
+      formQuestions.forEach(q => {
+        questionMap.set(q.original_param_id, {
+          text: q.question_text,
+          type: q.question_type,
+        });
+      });
+
+      // Fallback: if no form_questions exist (old forms), get from feedback_parameters
+      if (formQuestions.length === 0) {
+        const formType = form.batch ? 'lab' : 'theory';
+        const params = await tx.feedback_parameters.findMany({
+          where: { form_type: formType },
+        });
+        params.forEach(p => {
+          questionMap.set(p.id, { text: p.text, type: p.question_type });
+        });
+      }
+
       // Create response
       const response = await tx.feedback_responses.create({
         data: {
@@ -127,13 +155,18 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      // Batch create all rating items in single query (10x faster)
+      // Create rating items with question snapshot
       await tx.feedback_response_items.createMany({
-        data: ratingEntries.map(([parameterId, rating]) => ({
-          response_id: responseId,
-          parameter_id: parameterId,
-          rating: Math.min(10, Math.max(0, Number(rating))), // Clamp 0-10
-        })),
+        data: ratingEntries.map(([parameterId, rating]) => {
+          const question = questionMap.get(parameterId);
+          return {
+            response_id: responseId,
+            parameter_id: parameterId,
+            rating: Math.min(10, Math.max(0, Number(rating))),
+            question_text: question?.text || null,
+            question_type: question?.type || null,
+          };
+        }),
       });
 
       return response;

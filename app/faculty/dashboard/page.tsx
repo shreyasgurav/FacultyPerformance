@@ -32,15 +32,9 @@ interface FeedbackResponse {
   feedback_response_items: {
     parameter_id: string;
     rating: number;
+    question_text: string | null;
+    question_type: string | null;
   }[];
-}
-
-interface FeedbackParameter {
-  id: string;
-  text: string;
-  position: number;
-  form_type: string;
-  question_type: string;
 }
 
 function FacultyDashboardContent() {
@@ -48,7 +42,6 @@ function FacultyDashboardContent() {
   const [currentFaculty, setCurrentFaculty] = useState<FacultyRecord | null>(null);
   const [forms, setForms] = useState<FeedbackForm[]>([]);
   const [responses, setResponses] = useState<FeedbackResponse[]>([]);
-  const [parameters, setParameters] = useState<FeedbackParameter[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showProfile, setShowProfile] = useState(false);
 
@@ -57,11 +50,10 @@ function FacultyDashboardContent() {
       if (!userRole?.facultyId) return;
       
       try {
-        const [facultyRes, formsRes, responsesRes, paramsRes] = await Promise.all([
+        const [facultyRes, formsRes, responsesRes] = await Promise.all([
           authFetch(`/api/admin/faculty/${userRole.facultyId}`),
           authFetch('/api/admin/forms'),
           authFetch('/api/responses'),
-          authFetch('/api/feedback-parameters'),
         ]);
         
         if (facultyRes.ok) {
@@ -78,11 +70,6 @@ function FacultyDashboardContent() {
           const responsesData = await responsesRes.json();
           setResponses(responsesData);
         }
-
-        if (paramsRes.ok) {
-          const paramsData = await paramsRes.json();
-          setParameters(paramsData);
-        }
       } catch (error) {
         console.error('Error loading data', error);
       } finally {
@@ -98,39 +85,55 @@ function FacultyDashboardContent() {
     f.faculty_email.toLowerCase() === currentFaculty.email.toLowerCase()
   ) : [];
 
-  // Helper to normalize rating to 1-10 scale
+  // Helper to normalize rating to 0-10 scale based on question type
   const normalizeRating = (rating: number, questionType: string): number => {
     if (questionType === 'yes_no') {
-      // 0 -> 1, 1 -> 10
-      return rating === 1 ? 10 : 1;
+      // yes_no: 1 = Yes (10), 0 = No (0)
+      return rating === 1 ? 10 : 0;
     } else if (questionType === 'scale_3') {
-      // 1 -> 3.3, 2 -> 6.6, 3 -> 10
+      // scale_3: 1 = Need improvement (3.3), 2 = Satisfactory (6.6), 3 = Good (10)
       return (rating / 3) * 10;
     }
-    // scale_1_10 stays as is
+    // scale_1_10: already 1-10
     return rating;
   };
 
-  // Calculate stats for each form
-  const formStats = facultyForms.map(form => {
-    const formResponses = responses.filter(r => r.form_id === form.id);
-    const formType = form.batch ? 'lab' : 'theory';
-    const formParameters = parameters.filter(p => p.form_type === formType);
-    
-    let totalRating = 0;
-    let ratingCount = 0;
+  // Calculate average for a single response using embedded question data
+  const getResponseAverage = (resp: FeedbackResponse): number => {
+    if (resp.feedback_response_items.length === 0) return 0;
 
-    formResponses.forEach(resp => {
-      resp.feedback_response_items.forEach(item => {
-        const param = formParameters.find(p => p.id === item.parameter_id);
-        if (param) {
-          totalRating += normalizeRating(item.rating, param.question_type);
-          ratingCount++;
-        }
-      });
+    let totalNormalized = 0;
+    let count = 0;
+
+    resp.feedback_response_items.forEach(item => {
+      // Use embedded question_type from response (most reliable)
+      const questionType = item.question_type || 'scale_1_10';
+      totalNormalized += normalizeRating(item.rating, questionType);
+      count++;
     });
 
-    const avgRating = ratingCount > 0 ? totalRating / ratingCount : 0;
+    return count > 0 ? totalNormalized / count : 0;
+  };
+
+  // Calculate stats for each form using embedded question data
+  const formStats = facultyForms.map(form => {
+    const formResponses = responses.filter(r => r.form_id === form.id);
+    
+    if (formResponses.length === 0) {
+      return {
+        form,
+        responseCount: 0,
+        avgRating: 0,
+      };
+    }
+
+    // Calculate average of all response averages
+    let totalResponseAvg = 0;
+    formResponses.forEach(resp => {
+      totalResponseAvg += getResponseAverage(resp);
+    });
+
+    const avgRating = totalResponseAvg / formResponses.length;
 
     return {
       form,
