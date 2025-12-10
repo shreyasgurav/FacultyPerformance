@@ -153,8 +153,33 @@ function ReportsContent() {
 
   if (isLoading) {
     return (
-      <div className="max-w-5xl mx-auto px-4 py-6">
-        <div className="text-gray-500">Loading reports...</div>
+      <div className="max-w-6xl mx-auto px-4 py-6">
+        <div className="animate-pulse">
+          {/* Header skeleton */}
+          <div className="mb-6">
+            <div className="w-8 h-8 bg-gray-200 rounded-lg mb-3"></div>
+            <div className="h-7 bg-gray-200 rounded w-48 mb-2"></div>
+            <div className="h-4 bg-gray-100 rounded w-72"></div>
+          </div>
+          {/* Table skeleton */}
+          <div className="bg-white rounded-2xl border border-gray-100 p-6">
+            <div className="flex justify-between items-center mb-4">
+              <div className="h-6 bg-gray-200 rounded w-40"></div>
+              <div className="h-9 bg-gray-100 rounded w-48"></div>
+            </div>
+            <div className="space-y-3">
+              {[...Array(6)].map((_, i) => (
+                <div key={i} className="flex gap-4 items-center">
+                  <div className="w-6 h-6 bg-gray-100 rounded-full"></div>
+                  <div className="h-10 bg-gray-100 rounded flex-1"></div>
+                  <div className="h-10 bg-gray-100 rounded w-40"></div>
+                  <div className="h-10 bg-gray-100 rounded w-20"></div>
+                  <div className="h-10 bg-gray-100 rounded w-16"></div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
     );
   }

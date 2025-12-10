@@ -60,8 +60,11 @@ function UserManagementContent() {
     type: 'student' | 'faculty' | 'admin' | null;
     id: string;
     name: string;
+    bulk?: boolean;
+    ids?: string[];
   }>({ isOpen: false, type: null, id: '', name: '' });
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
 
   const [localStudents, setLocalStudents] = useState<Student[]>([]);
   const [localFaculty, setLocalFaculty] = useState<Faculty[]>([]);
@@ -285,54 +288,48 @@ function UserManagementContent() {
     ));
   };
 
-  // Confirm and add students from CSV preview
+  // Confirm and add students from CSV preview - BULK import
   const handleConfirmCSVImport = async () => {
     const selectedStudents = csvStudents.filter(s => s.selected && !s.exists);
     if (selectedStudents.length === 0) return;
     
     setIsUploading(true);
     
-    let successCount = 0;
-    let failCount = 0;
-    const errors: string[] = [];
-    
-    for (const student of selectedStudents) {
-      try {
-        const res = await authFetch('/api/admin/students', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(student),
-        });
-        
-        if (res.ok) {
-          const newStudent = await res.json();
-          setLocalStudents(prev => [...prev, newStudent]);
-          successCount++;
-        } else {
-          const err = await res.json();
-          errors.push(`${student.email}: ${err.error}`);
-          failCount++;
+    try {
+      // Use bulk endpoint for fast parallel creation
+      const res = await authFetch('/api/admin/students/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ students: selectedStudents }),
+      });
+      
+      const data = await res.json();
+      
+      if (res.ok) {
+        // Refresh the student list from server
+        const refreshRes = await authFetch('/api/admin/students');
+        if (refreshRes.ok) {
+          const refreshedStudents = await refreshRes.json();
+          setLocalStudents(refreshedStudents);
         }
-      } catch {
-        errors.push(`${student.email}: Network error`);
-        failCount++;
+        
+        setToastType('success');
+        if (data.skipped > 0) {
+          setToastMessage(`Imported ${data.count} student(s). ${data.skipped} skipped (duplicates).`);
+        } else {
+          setToastMessage(`Successfully imported ${data.count} student(s)!`);
+        }
+      } else {
+        setToastType('error');
+        setToastMessage(data.error || 'Failed to import students');
       }
-    }
-    
-    // Show result
-    if (successCount > 0 && failCount === 0) {
-      setToastType('success');
-      setToastMessage(`Successfully imported ${successCount} student(s)!`);
-    } else if (successCount > 0 && failCount > 0) {
-      setToastType('success');
-      setToastMessage(`Imported ${successCount} student(s). ${failCount} failed.`);
-    } else {
+    } catch (error) {
+      console.error('Bulk import error:', error);
       setToastType('error');
-      setToastMessage(`Import failed. ${errors[0] || 'Unknown error'}`);
+      setToastMessage('Network error during import');
     }
-    setShowToast(true);
     
-    // Close modal and reset
+    setShowToast(true);
     setShowCSVPreviewModal(false);
     setCsvStudents([]);
     setIsUploading(false);
@@ -419,56 +416,48 @@ function UserManagementContent() {
     ));
   };
 
-  // Confirm and add faculty from CSV preview
+  // Confirm and add faculty from CSV preview - BULK import
   const handleConfirmFacultyCSVImport = async () => {
     const selectedFaculty = csvFaculty.filter(f => f.selected && !f.exists);
     if (selectedFaculty.length === 0) return;
     
     setIsUploading(true);
     
-    let successCount = 0;
-    let failCount = 0;
-    const errors: string[] = [];
-    
-    for (const fac of selectedFaculty) {
-      try {
-        const res = await authFetch('/api/admin/faculty', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: fac.name,
-            email: fac.email,
-            facultyCode: fac.code,
-          }),
-        });
-        
-        if (res.ok) {
-          const newFac = await res.json();
-          setLocalFaculty(prev => [...prev, newFac]);
-          successCount++;
-        } else {
-          const err = await res.json();
-          errors.push(`${fac.email}: ${err.error}`);
-          failCount++;
+    try {
+      // Use bulk endpoint for fast parallel creation
+      const res = await authFetch('/api/admin/faculty/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ faculty: selectedFaculty }),
+      });
+      
+      const data = await res.json();
+      
+      if (res.ok) {
+        // Refresh the faculty list from server
+        const refreshRes = await authFetch('/api/admin/faculty');
+        if (refreshRes.ok) {
+          const refreshedFaculty = await refreshRes.json();
+          setLocalFaculty(refreshedFaculty);
         }
-      } catch {
-        errors.push(`${fac.email}: Network error`);
-        failCount++;
+        
+        setToastType('success');
+        if (data.skipped > 0) {
+          setToastMessage(`Imported ${data.count} faculty. ${data.skipped} skipped (duplicates).`);
+        } else {
+          setToastMessage(`Successfully imported ${data.count} faculty!`);
+        }
+      } else {
+        setToastType('error');
+        setToastMessage(data.error || 'Failed to import faculty');
       }
-    }
-    
-    if (successCount > 0 && failCount === 0) {
-      setToastType('success');
-      setToastMessage(`Successfully imported ${successCount} faculty!`);
-    } else if (successCount > 0 && failCount > 0) {
-      setToastType('success');
-      setToastMessage(`Imported ${successCount} faculty. ${failCount} failed.`);
-    } else {
+    } catch (error) {
+      console.error('Bulk faculty import error:', error);
       setToastType('error');
-      setToastMessage(`Import failed. ${errors[0] || 'Unknown error'}`);
+      setToastMessage('Network error during import');
     }
-    setShowToast(true);
     
+    setShowToast(true);
     setShowFacultyCSVPreviewModal(false);
     setCsvFaculty([]);
     setIsUploading(false);
@@ -521,7 +510,62 @@ function UserManagementContent() {
   };
 
   const handleConfirmDelete = async () => {
-    if (!deleteConfirm.type || !deleteConfirm.id) return;
+    if (!deleteConfirm.type) return;
+    
+    // Handle bulk delete
+    if (deleteConfirm.bulk && deleteConfirm.ids && deleteConfirm.ids.length > 0) {
+      setIsDeleting(true);
+      try {
+        let endpoint = '';
+        let successMessage = '';
+        
+        if (deleteConfirm.type === 'student') {
+          endpoint = '/api/admin/students/bulk';
+          successMessage = `Deleted ${deleteConfirm.ids.length} student(s)!`;
+        } else if (deleteConfirm.type === 'faculty') {
+          endpoint = '/api/admin/faculty/bulk';
+          successMessage = `Deleted ${deleteConfirm.ids.length} faculty member(s)!`;
+        } else {
+          throw new Error('Bulk delete not supported for this type');
+        }
+
+        const res = await authFetch(endpoint, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ids: deleteConfirm.ids }),
+        });
+
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.error || 'Failed to delete');
+        }
+
+        const data = await res.json();
+
+        // Update local state
+        const idsSet = new Set(deleteConfirm.ids);
+        if (deleteConfirm.type === 'student') {
+          setLocalStudents(localStudents.filter(s => !idsSet.has(s.id)));
+        } else if (deleteConfirm.type === 'faculty') {
+          setLocalFaculty(localFaculty.filter(f => !idsSet.has(f.id)));
+        }
+
+        setToastType('success');
+        setToastMessage(data.message || successMessage);
+        setShowToast(true);
+        closeDeleteConfirm();
+      } catch (error) {
+        setToastType('error');
+        setToastMessage(error instanceof Error ? error.message : 'Failed to delete');
+        setShowToast(true);
+      } finally {
+        setIsDeleting(false);
+      }
+      return;
+    }
+
+    // Handle single delete
+    if (!deleteConfirm.id) return;
     setIsDeleting(true);
 
     try {
@@ -569,6 +613,34 @@ function UserManagementContent() {
     } finally {
       setIsDeleting(false);
     }
+  };
+
+  // Bulk delete all filtered students
+  const handleBulkDeleteStudents = () => {
+    if (filteredStudents.length === 0) return;
+    const ids = filteredStudents.map(s => s.id);
+    setDeleteConfirm({
+      isOpen: true,
+      type: 'student',
+      id: '',
+      name: `${ids.length} student(s)`,
+      bulk: true,
+      ids,
+    });
+  };
+
+  // Bulk delete all filtered faculty
+  const handleBulkDeleteFaculty = () => {
+    if (filteredFaculty.length === 0) return;
+    const ids = filteredFaculty.map(f => f.id);
+    setDeleteConfirm({
+      isOpen: true,
+      type: 'faculty',
+      id: '',
+      name: `${ids.length} faculty member(s)`,
+      bulk: true,
+      ids,
+    });
   };
 
   const handleEditStudent = (student: Student) => {
@@ -730,9 +802,38 @@ function UserManagementContent() {
         <p className="text-gray-500 text-sm mt-1">Manage student and faculty accounts</p>
       </div>
 
-      {/* Loading State */}
+      {/* Loading State - Skeleton */}
       {isLoading && (
-        <div className="text-center py-8 text-gray-500">Loading users...</div>
+        <div className="animate-pulse">
+          {/* Tabs skeleton */}
+          <div className="flex gap-2 mb-6">
+            <div className="h-10 bg-gray-200 rounded-xl w-28"></div>
+            <div className="h-10 bg-gray-100 rounded-xl w-24"></div>
+            <div className="h-10 bg-gray-100 rounded-xl w-24"></div>
+          </div>
+          {/* Table skeleton */}
+          <div className="bg-white rounded-2xl border border-gray-100 p-6">
+            <div className="flex justify-between items-center mb-4">
+              <div className="h-6 bg-gray-200 rounded w-32"></div>
+              <div className="h-9 bg-gray-200 rounded w-28"></div>
+            </div>
+            <div className="flex gap-2 mb-4">
+              <div className="h-9 bg-gray-100 rounded-lg flex-1 max-w-xs"></div>
+              <div className="h-9 bg-gray-100 rounded-lg w-28"></div>
+              <div className="h-9 bg-gray-100 rounded-lg w-28"></div>
+            </div>
+            <div className="space-y-3">
+              {[...Array(6)].map((_, i) => (
+                <div key={i} className="flex gap-4">
+                  <div className="h-12 bg-gray-100 rounded flex-1"></div>
+                  <div className="h-12 bg-gray-100 rounded w-40"></div>
+                  <div className="h-12 bg-gray-100 rounded w-20"></div>
+                  <div className="h-12 bg-gray-100 rounded w-16"></div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Tabs */}
@@ -772,16 +873,26 @@ function UserManagementContent() {
       {/* Students Tab */}
       {!isLoading && activeTab === 'students' && (
         <div className="bg-white rounded-2xl border border-gray-100 p-6">
-          {/* Header with title and action button */}
+          {/* Header with title and action buttons */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
             <h2 className="text-base font-semibold text-gray-900">Students</h2>
-            <button
-              onClick={() => setShowStudentModal(true)}
-              className="inline-flex items-center px-3 py-1.5 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors"
-            >
-              <PlusIcon className="w-4 h-4 mr-1.5" />
-              Add Student
-            </button>
+            <div className="flex items-center gap-2">
+              {filteredStudents.length > 0 && (
+                <button
+                  onClick={handleBulkDeleteStudents}
+                  className="inline-flex items-center px-3 py-1.5 bg-red-50 text-red-600 text-sm font-medium rounded-lg hover:bg-red-100 transition-colors"
+                >
+                  Delete All ({filteredStudents.length})
+                </button>
+              )}
+              <button
+                onClick={() => setShowStudentModal(true)}
+                className="inline-flex items-center px-3 py-1.5 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors"
+              >
+                <PlusIcon className="w-4 h-4 mr-1.5" />
+                Add Student
+              </button>
+            </div>
           </div>
 
           {/* Search and Filters */}
@@ -925,16 +1036,26 @@ function UserManagementContent() {
       {/* Faculty Tab */}
       {!isLoading && activeTab === 'faculty' && (
         <div className="bg-white rounded-2xl border border-gray-100 p-6">
-          {/* Header with title and action button */}
+          {/* Header with title and action buttons */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
             <h2 className="text-base font-semibold text-gray-900">Faculty</h2>
-            <button
-              onClick={() => setShowFacultyModal(true)}
-              className="inline-flex items-center px-3 py-1.5 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors"
-            >
-              <PlusIcon className="w-4 h-4 mr-1.5" />
-              Add Faculty
-            </button>
+            <div className="flex items-center gap-2">
+              {filteredFaculty.length > 0 && (
+                <button
+                  onClick={handleBulkDeleteFaculty}
+                  className="inline-flex items-center px-3 py-1.5 bg-red-50 text-red-600 text-sm font-medium rounded-lg hover:bg-red-100 transition-colors"
+                >
+                  Delete All ({filteredFaculty.length})
+                </button>
+              )}
+              <button
+                onClick={() => setShowFacultyModal(true)}
+                className="inline-flex items-center px-3 py-1.5 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors"
+              >
+                <PlusIcon className="w-4 h-4 mr-1.5" />
+                Add Faculty
+              </button>
+            </div>
           </div>
 
           {/* Search */}

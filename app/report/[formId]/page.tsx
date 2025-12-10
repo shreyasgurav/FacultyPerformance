@@ -52,6 +52,7 @@ function ReportContent() {
   const [responses, setResponses] = useState<FeedbackResponse[]>([]);
   const [formQuestions, setFormQuestions] = useState<FormQuestion[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [notAuthorized, setNotAuthorized] = useState(false);
 
   useEffect(() => {
     async function fetchData() {
@@ -63,10 +64,11 @@ function ReportContent() {
           authFetch(`/api/forms/${formId}/questions`),  // Get form-specific questions
         ]);
 
+        let foundForm: FeedbackForm | null = null;
         if (formsRes.ok) {
           const formsData = await formsRes.json();
-          const foundForm = formsData.find((f: FeedbackForm) => f.id === formId);
-          setForm(foundForm || null);
+          foundForm = formsData.find((f: FeedbackForm) => f.id === formId) || null;
+          setForm(foundForm);
         }
 
         if (responsesRes.ok) {
@@ -77,6 +79,16 @@ function ReportContent() {
         if (questionsRes.ok) {
           const questionsData = await questionsRes.json();
           setFormQuestions(questionsData);
+        }
+
+        // SECURITY: Check if faculty is authorized to view this form's report
+        // Admin can see all reports, faculty can only see their own forms
+        if (userRole?.role === 'faculty' && foundForm) {
+          const facultyEmail = userRole.email?.toLowerCase();
+          const formFacultyEmail = foundForm.faculty_email?.toLowerCase();
+          if (facultyEmail !== formFacultyEmail) {
+            setNotAuthorized(true);
+          }
         }
       } catch (error) {
         console.error('Error fetching data:', error);
@@ -252,26 +264,68 @@ function ReportContent() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="w-8 h-8 border-2 border-gray-900 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-500 text-sm">Loading report...</p>
+      <div className="max-w-4xl mx-auto px-4 py-6">
+        <div className="animate-pulse">
+          {/* Back button skeleton */}
+          <div className="w-8 h-8 bg-gray-200 rounded-lg mb-4"></div>
+          {/* Header skeleton */}
+          <div className="bg-white rounded-2xl border border-gray-100 p-6 mb-6">
+            <div className="h-6 bg-gray-200 rounded w-64 mb-2"></div>
+            <div className="h-4 bg-gray-100 rounded w-40 mb-4"></div>
+            <div className="flex gap-2">
+              <div className="h-6 bg-gray-100 rounded-full w-20"></div>
+              <div className="h-6 bg-gray-100 rounded-full w-24"></div>
+            </div>
+          </div>
+          {/* Stats skeleton */}
+          <div className="grid grid-cols-3 gap-4 mb-6">
+            {[...Array(3)].map((_, i) => (
+              <div key={i} className="bg-white rounded-xl border border-gray-100 p-4">
+                <div className="h-4 bg-gray-100 rounded w-20 mb-2"></div>
+                <div className="h-8 bg-gray-200 rounded w-16"></div>
+              </div>
+            ))}
+          </div>
+          {/* Questions skeleton */}
+          <div className="bg-white rounded-2xl border border-gray-100 p-6">
+            <div className="h-5 bg-gray-200 rounded w-40 mb-4"></div>
+            <div className="space-y-4">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="flex justify-between items-center py-3 border-b border-gray-50">
+                  <div className="h-4 bg-gray-100 rounded flex-1 mr-4"></div>
+                  <div className="h-6 bg-gray-200 rounded w-16"></div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     );
   }
 
-  if (!form) {
+  if (!form || notAuthorized) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-6">
         <Link
-          href="/admin/reports"
+          href={userRole?.role === 'admin' ? '/admin/reports' : '/faculty/dashboard'}
           className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors mb-4"
         >
           <ArrowLeftIcon className="w-5 h-5" />
         </Link>
         <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center">
-          <p className="text-gray-400">Form not found.</p>
+          {notAuthorized ? (
+            <>
+              <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <p className="text-gray-600 mb-2">Access Denied</p>
+              <p className="text-sm text-gray-400">You can only view reports for your own forms.</p>
+            </>
+          ) : (
+            <p className="text-gray-400">Form not found.</p>
+          )}
         </div>
       </div>
     );

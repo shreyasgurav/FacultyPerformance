@@ -171,9 +171,8 @@ export async function POST(request: NextRequest) {
 
       return response;
     }, {
-      maxWait: 10000, // Max time to wait for transaction slot (10s)
-      timeout: 15000, // Max transaction duration (15s)
-      isolationLevel: 'ReadCommitted', // Prevent dirty reads
+      maxWait: 30000, // Max time to wait for transaction slot (30s)
+      timeout: 60000, // Max transaction duration (60s)
     });
 
     return NextResponse.json({ 

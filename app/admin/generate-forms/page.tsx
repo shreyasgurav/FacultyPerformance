@@ -225,6 +225,92 @@ function GenerateFormsContent() {
 
   const getCourseName = (code: string) => courses.find(c => c.value === code)?.label || code;
 
+  // Parse CSV text (from file upload or Google Sheet) into FormEntry[] using the same rules
+  const parseCsvText = (text: string, source: 'csv' | 'sheet' = 'csv') => {
+    const stripQuotes = (value: string) => value.replace(/^"|"$/g, '').trim();
+
+    const lines = text.split('\n').filter(line => line.trim());
+    if (lines.length < 2) {
+      setCsvError('CSV must have a header row and at least one data row');
+      setTimeout(() => setCsvError(''), 3000);
+      return;
+    }
+
+    const header = lines[0]
+      .split(',')
+      .map(h => stripQuotes(h).toLowerCase());
+    const requiredFields = ['subject', 'faculty_email', 'semester', 'course', 'division'];
+    const missingFields = requiredFields.filter(f => !header.includes(f));
+
+    if (missingFields.length > 0) {
+      setCsvError(`Missing required columns: ${missingFields.join(', ')}`);
+      setTimeout(() => setCsvError(''), 5000);
+      return;
+    }
+
+    const subjectIdx = header.indexOf('subject');
+    const emailIdx = header.indexOf('faculty_email');
+    const semesterIdx = header.indexOf('semester');
+    const courseIdx = header.indexOf('course');
+    const divisionIdx = header.indexOf('division');
+    const batchIdx = header.indexOf('batch');
+    const yearIdx = header.indexOf('academic_year');
+
+    const parsedForms: FormEntry[] = [];
+    const errors: string[] = [];
+
+    for (let i = 1; i < lines.length; i++) {
+      const rawValues = lines[i].split(',');
+
+      const subject = stripQuotes(rawValues[subjectIdx] ?? '');
+      const email = stripQuotes(rawValues[emailIdx] ?? '');
+      const semester = stripQuotes(rawValues[semesterIdx] ?? '');
+      const course = stripQuotes(rawValues[courseIdx] ?? '');
+      const division = stripQuotes(rawValues[divisionIdx] ?? '');
+      const batch = batchIdx >= 0 ? stripQuotes(rawValues[batchIdx] ?? '') : '';
+      const year = yearIdx >= 0 ? stripQuotes(rawValues[yearIdx] ?? '') : academicYear;
+
+      if (!subject || !email || !semester || !course || !division) {
+        errors.push(`Row ${i + 1}: Missing required fields`);
+        continue;
+      }
+
+      const faculty = facultyList.find(f => f.email.toLowerCase() === email.toLowerCase());
+      if (!faculty) {
+        errors.push(`Row ${i + 1}: Faculty not found for email ${email}`);
+        continue;
+      }
+
+      parsedForms.push({
+        subjectName: subject,
+        facultyName: faculty.name,
+        facultyEmail: faculty.email,
+        division: division.toUpperCase(),
+        semester: semester,
+        course: course.toUpperCase(),
+        formType: batch ? 'batch' : 'division',
+        academicYear: year || academicYear,
+        ...(batch && { batch: batch.toUpperCase() }),
+      });
+    }
+
+    if (errors.length > 0) {
+      setCsvError(`${errors.length} row(s) skipped: ${errors.slice(0, 3).join('; ')}${errors.length > 3 ? '...' : ''}`);
+      setTimeout(() => setCsvError(''), 5000);
+    }
+
+    if (parsedForms.length > 0) {
+      setCsvData(parsedForms);
+      const label = source === 'csv' ? 'CSV' : 'Google Sheet';
+      const totalRows = lines.length - 1; // exclude header
+      setSuccessMessage(`Parsed ${parsedForms.length} form(s) out of ${totalRows} row(s) from ${label}`);
+      setTimeout(() => setSuccessMessage(''), 3000);
+    } else if (errors.length === 0) {
+      setCsvError('No valid rows found in CSV');
+      setTimeout(() => setCsvError(''), 3000);
+    }
+  };
+
   // Handle CSV file upload
   const handleCsvUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -240,82 +326,7 @@ function GenerateFormsContent() {
     reader.onload = (e) => {
       try {
         const text = e.target?.result as string;
-        const lines = text.split('\n').filter(line => line.trim());
-        
-        if (lines.length < 2) {
-          setCsvError('CSV file must have a header row and at least one data row');
-          setTimeout(() => setCsvError(''), 3000);
-          return;
-        }
-
-        // Parse header
-        const header = lines[0].split(',').map(h => h.trim().toLowerCase());
-        const requiredFields = ['subject', 'faculty_email', 'semester', 'course', 'division'];
-        const missingFields = requiredFields.filter(f => !header.includes(f));
-        
-        if (missingFields.length > 0) {
-          setCsvError(`Missing required columns: ${missingFields.join(', ')}`);
-          setTimeout(() => setCsvError(''), 5000);
-          return;
-        }
-
-        const subjectIdx = header.indexOf('subject');
-        const emailIdx = header.indexOf('faculty_email');
-        const semesterIdx = header.indexOf('semester');
-        const courseIdx = header.indexOf('course');
-        const divisionIdx = header.indexOf('division');
-        const batchIdx = header.indexOf('batch');
-        const yearIdx = header.indexOf('academic_year');
-
-        const parsedForms: FormEntry[] = [];
-        const errors: string[] = [];
-
-        for (let i = 1; i < lines.length; i++) {
-          const values = lines[i].split(',').map(v => v.trim());
-          
-          const subject = values[subjectIdx];
-          const email = values[emailIdx];
-          const semester = values[semesterIdx];
-          const course = values[courseIdx];
-          const division = values[divisionIdx];
-          const batch = batchIdx >= 0 ? values[batchIdx] : '';
-          const year = yearIdx >= 0 ? values[yearIdx] : academicYear;
-
-          if (!subject || !email || !semester || !course || !division) {
-            errors.push(`Row ${i + 1}: Missing required fields`);
-            continue;
-          }
-
-          // Find faculty by email
-          const faculty = facultyList.find(f => f.email.toLowerCase() === email.toLowerCase());
-          if (!faculty) {
-            errors.push(`Row ${i + 1}: Faculty not found for email ${email}`);
-            continue;
-          }
-
-          parsedForms.push({
-            subjectName: subject,
-            facultyName: faculty.name,
-            facultyEmail: faculty.email,
-            division: division.toUpperCase(),
-            semester: semester,
-            course: course.toUpperCase(),
-            formType: batch ? 'batch' : 'division',
-            academicYear: year || academicYear,
-            ...(batch && { batch: batch.toUpperCase() }),
-          });
-        }
-
-        if (errors.length > 0) {
-          setCsvError(`${errors.length} row(s) skipped: ${errors.slice(0, 3).join('; ')}${errors.length > 3 ? '...' : ''}`);
-          setTimeout(() => setCsvError(''), 5000);
-        }
-
-        if (parsedForms.length > 0) {
-          setCsvData(parsedForms);
-          setSuccessMessage(`Parsed ${parsedForms.length} form(s) from CSV`);
-          setTimeout(() => setSuccessMessage(''), 3000);
-        }
+        parseCsvText(text, 'csv');
       } catch {
         setCsvError('Failed to parse CSV file');
         setTimeout(() => setCsvError(''), 3000);
@@ -328,6 +339,7 @@ function GenerateFormsContent() {
     }
   };
 
+  // Import from public Google Sheet via backend proxy
   const addCsvToForms = () => {
     if (csvData.length === 0) return;
 

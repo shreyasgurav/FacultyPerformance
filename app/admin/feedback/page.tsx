@@ -111,6 +111,8 @@ function FeedbackMonitoringContent() {
   const [deleteConfirm, setDeleteConfirm] = useState<{
     isOpen: boolean;
     form: FeedbackForm | null;
+    bulk?: boolean;
+    ids?: string[];
   }>({ isOpen: false, form: null });
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -119,14 +121,51 @@ function FeedbackMonitoringContent() {
   };
 
   const closeDeleteConfirm = () => {
-    setDeleteConfirm({ isOpen: false, form: null });
+    setDeleteConfirm({ isOpen: false, form: null, bulk: false, ids: [] });
+  };
+
+  // Bulk delete all filtered forms
+  const handleBulkDeleteForms = () => {
+    if (filteredForms.length === 0) return;
+    const ids = filteredForms.map(f => f.id);
+    setDeleteConfirm({
+      isOpen: true,
+      form: null,
+      bulk: true,
+      ids,
+    });
   };
 
   const handleConfirmDelete = async () => {
-    if (!deleteConfirm.form) return;
     setIsDeleting(true);
 
     try {
+      // Handle bulk delete
+      if (deleteConfirm.bulk && deleteConfirm.ids && deleteConfirm.ids.length > 0) {
+        const res = await authFetch('/api/admin/forms/bulk', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ids: deleteConfirm.ids }),
+        });
+
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.error || 'Failed to delete forms');
+        }
+
+        const result = await res.json();
+        const idsSet = new Set(deleteConfirm.ids);
+        setForms(prev => prev.filter(f => !idsSet.has(f.id)));
+        setResponses(prev => prev.filter(r => !idsSet.has(r.form_id)));
+        setToastMessage(result.message || `Deleted ${deleteConfirm.ids.length} form(s)`);
+        setShowToast(true);
+        closeDeleteConfirm();
+        return;
+      }
+
+      // Handle single delete
+      if (!deleteConfirm.form) return;
+
       const res = await authFetch(`/api/admin/forms?id=${encodeURIComponent(deleteConfirm.form.id)}`, {
         method: 'DELETE',
       });
@@ -150,7 +189,39 @@ function FeedbackMonitoringContent() {
   };
 
   if (isLoading) {
-    return <div className="p-6 text-gray-500">Loading...</div>;
+    return (
+      <div className="max-w-6xl mx-auto px-4 py-6">
+        <div className="animate-pulse">
+          {/* Header skeleton */}
+          <div className="mb-6">
+            <div className="w-8 h-8 bg-gray-200 rounded-lg mb-3"></div>
+            <div className="h-7 bg-gray-200 rounded w-48 mb-2"></div>
+            <div className="h-4 bg-gray-100 rounded w-64"></div>
+          </div>
+          {/* Filters skeleton */}
+          <div className="bg-white rounded-2xl border border-gray-100 p-5 mb-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="h-10 bg-gray-100 rounded-lg"></div>
+              <div className="h-10 bg-gray-100 rounded-lg"></div>
+              <div className="h-10 bg-gray-100 rounded-lg"></div>
+            </div>
+          </div>
+          {/* Table skeleton */}
+          <div className="bg-white rounded-2xl border border-gray-100 p-6">
+            <div className="h-6 bg-gray-200 rounded w-40 mb-4"></div>
+            <div className="space-y-3">
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className="flex gap-4">
+                  <div className="h-10 bg-gray-100 rounded flex-1"></div>
+                  <div className="h-10 bg-gray-100 rounded w-32"></div>
+                  <div className="h-10 bg-gray-100 rounded w-24"></div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -162,8 +233,14 @@ function FeedbackMonitoringContent() {
       {/* Delete Confirmation Dialog */}
       <ConfirmDialog
         isOpen={deleteConfirm.isOpen}
-        title="Delete Feedback Form"
-        message={deleteConfirm.form ? `Are you sure you want to delete the form for "${deleteConfirm.form.subject_name}"? This will remove all responses linked to this form.` : ''}
+        title={deleteConfirm.bulk ? "Delete All Forms" : "Delete Feedback Form"}
+        message={
+          deleteConfirm.bulk
+            ? `Are you sure you want to delete ${deleteConfirm.ids?.length || 0} form(s)? This will remove all responses linked to these forms. This action cannot be undone.`
+            : deleteConfirm.form
+            ? `Are you sure you want to delete the form for "${deleteConfirm.form.subject_name}"? This will remove all responses linked to this form.`
+            : ''
+        }
         confirmText="Delete"
         onConfirm={handleConfirmDelete}
         onCancel={closeDeleteConfirm}
@@ -232,6 +309,14 @@ function FeedbackMonitoringContent() {
           <h2 className="text-base font-semibold text-gray-900">
             Feedback Forms ({filteredForms.length})
           </h2>
+          {filteredForms.length > 0 && (
+            <button
+              onClick={handleBulkDeleteForms}
+              className="inline-flex items-center px-3 py-1.5 bg-red-50 text-red-600 text-sm font-medium rounded-lg hover:bg-red-100 transition-colors"
+            >
+              Delete All ({filteredForms.length})
+            </button>
+          )}
         </div>
         {filteredForms.length === 0 ? (
           <p className="text-gray-400 text-center text-sm py-8">No feedback forms found.</p>

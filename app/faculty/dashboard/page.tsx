@@ -150,10 +150,34 @@ function FacultyDashboardContent() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="w-8 h-8 border-2 border-gray-900 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-500 text-sm">Loading...</p>
+      <div className="max-w-4xl mx-auto px-4 py-6">
+        <div className="animate-pulse">
+          {/* Header skeleton */}
+          <div className="flex items-center justify-between mb-6">
+            <div className="h-7 bg-gray-200 rounded w-48"></div>
+            <div className="flex items-center gap-3">
+              <div className="h-8 bg-gray-100 rounded-lg w-32 hidden sm:block"></div>
+              <div className="h-10 w-10 bg-gray-200 rounded-full"></div>
+            </div>
+          </div>
+          {/* Cards skeleton */}
+          <div className="space-y-4">
+            {[...Array(3)].map((_, i) => (
+              <div key={i} className="bg-white rounded-2xl border border-gray-100 p-5">
+                <div className="flex justify-between items-start">
+                  <div className="flex-1">
+                    <div className="h-5 bg-gray-200 rounded w-48 mb-2"></div>
+                    <div className="h-4 bg-gray-100 rounded w-32 mb-3"></div>
+                    <div className="flex gap-2">
+                      <div className="h-6 bg-gray-100 rounded-full w-20"></div>
+                      <div className="h-6 bg-gray-100 rounded-full w-24"></div>
+                    </div>
+                  </div>
+                  <div className="h-9 bg-gray-200 rounded-lg w-28"></div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     );

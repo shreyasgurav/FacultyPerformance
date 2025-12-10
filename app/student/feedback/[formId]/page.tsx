@@ -231,7 +231,38 @@ function FeedbackFormContent({ params }: PageProps) {
   };
 
   if (isLoading) {
-    return <div className="p-6 text-gray-500">Loading...</div>;
+    return (
+      <div className="max-w-2xl mx-auto px-4 py-6">
+        <div className="animate-pulse">
+          {/* Back button skeleton */}
+          <div className="w-8 h-8 bg-gray-200 rounded-lg mb-4"></div>
+          {/* Header skeleton */}
+          <div className="bg-white rounded-2xl border border-gray-100 p-6 mb-6">
+            <div className="h-6 bg-gray-200 rounded w-48 mb-2"></div>
+            <div className="h-4 bg-gray-100 rounded w-32 mb-4"></div>
+            <div className="flex gap-2">
+              <div className="h-6 bg-gray-100 rounded-full w-16"></div>
+              <div className="h-6 bg-gray-100 rounded-full w-20"></div>
+            </div>
+          </div>
+          {/* Questions skeleton */}
+          <div className="space-y-4">
+            {[...Array(5)].map((_, i) => (
+              <div key={i} className="bg-white rounded-2xl border border-gray-100 p-5">
+                <div className="h-4 bg-gray-200 rounded w-full mb-4"></div>
+                <div className="flex gap-2">
+                  {[...Array(5)].map((_, j) => (
+                    <div key={j} className="h-10 bg-gray-100 rounded-lg flex-1"></div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+          {/* Submit button skeleton */}
+          <div className="h-12 bg-gray-200 rounded-xl mt-6"></div>
+        </div>
+      </div>
+    );
   }
 
   if (!form || notAuthorized) {
