@@ -91,12 +91,43 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Semester must be between 1 and 8' }, { status: 400 });
     }
 
-    // Check if email already exists as student
+    // Check if email already exists as student - if so, update instead of reject
     const existingStudent = await prisma.students.findUnique({
       where: { email },
     });
+    
     if (existingStudent) {
-      return NextResponse.json({ error: 'A student with this email already exists' }, { status: 409 });
+      // Update existing student with new data
+      const updatedStudent = await prisma.students.update({
+        where: { email },
+        data: {
+          name,
+          semester: semesterNum,
+          course: course || 'IT',
+          division,
+          batch: batch || null,
+        },
+      });
+
+      // Update user record name if it exists
+      await prisma.users.updateMany({
+        where: { student_id: existingStudent.id },
+        data: { name },
+      });
+
+      // Return updated student
+      return NextResponse.json({
+        id: updatedStudent.id,
+        name: updatedStudent.name,
+        email: updatedStudent.email,
+        departmentId: updatedStudent.department_id,
+        semester: updatedStudent.semester,
+        year: semesterToYear(updatedStudent.semester),
+        course: updatedStudent.course,
+        division: updatedStudent.division,
+        batch: updatedStudent.batch || '',
+        updated: true,
+      });
     }
 
     // Check if email exists in other roles (faculty or admin)
@@ -107,7 +138,7 @@ export async function POST(request: NextRequest) {
       }, { status: 409 });
     }
 
-    // Generate unique IDs
+    // Generate unique IDs for new student
     const studentId = `stu_${Date.now()}`;
     const userId = `user_${Date.now()}`;
 

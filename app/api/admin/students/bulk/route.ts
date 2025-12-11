@@ -2,9 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyAuth, hasRole, forbiddenResponse } from '@/lib/auth';
 
-// POST bulk create students - ADMIN ONLY
-// DELETE bulk delete students - ADMIN ONLY
-// Accepts an array of students and creates them all at once using createMany
+// POST bulk create/update students - ADMIN ONLY
+// Accepts an array of students - creates new ones and updates existing ones
 export async function POST(request: NextRequest) {
   const auth = await verifyAuth(request);
   if (!hasRole(auth, ['admin'])) {
@@ -19,9 +18,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No students provided' }, { status: 400 });
     }
 
-    // Validate and prepare student data
     const now = Date.now();
-    const studentRecords: Array<{
+    const errors: string[] = [];
+    let created = 0;
+    let updated = 0;
+
+    // Get existing students by email for upsert logic
+    const existingStudents = await prisma.students.findMany({
+      select: { id: true, email: true },
+    });
+    const existingByEmail = new Map(existingStudents.map(s => [s.email.toLowerCase(), s.id]));
+
+    // Separate new students from updates
+    const newStudentRecords: Array<{
       id: string;
       name: string;
       email: string;
@@ -32,7 +41,7 @@ export async function POST(request: NextRequest) {
       batch: string | null;
     }> = [];
 
-    const userRecords: Array<{
+    const newUserRecords: Array<{
       id: string;
       name: string;
       email: string;
@@ -40,13 +49,8 @@ export async function POST(request: NextRequest) {
       student_id: string;
     }> = [];
 
-    const errors: string[] = [];
-
-    // Get existing emails to skip duplicates
-    const existingStudents = await prisma.students.findMany({
-      select: { email: true },
-    });
-    const existingEmails = new Set(existingStudents.map(s => s.email.toLowerCase()));
+    const updatePromises: Promise<unknown>[] = [];
+    const processedEmails = new Set<string>();
 
     for (let i = 0; i < students.length; i++) {
       const { name, email, semester, course, division, batch } = students[i];
@@ -57,10 +61,12 @@ export async function POST(request: NextRequest) {
       }
 
       const normalizedEmail = email.toLowerCase();
-      if (existingEmails.has(normalizedEmail)) {
-        // Skip duplicates silently (they already exist)
+      
+      // Skip if we've already processed this email in this batch
+      if (processedEmails.has(normalizedEmail)) {
         continue;
       }
+      processedEmails.add(normalizedEmail);
 
       const semesterNum = parseInt(semester, 10);
       if (isNaN(semesterNum) || semesterNum < 1 || semesterNum > 8) {
@@ -68,61 +74,88 @@ export async function POST(request: NextRequest) {
         continue;
       }
 
-      const studentId = `stu_${now}_${i}`;
-      const userId = `user_${now}_${i}`;
+      const existingId = existingByEmail.get(normalizedEmail);
+      
+      if (existingId) {
+        // Update existing student
+        updatePromises.push(
+          prisma.students.update({
+            where: { id: existingId },
+            data: {
+              name,
+              semester: semesterNum,
+              course: course || 'IT',
+              division,
+              batch: batch || null,
+            },
+          }).then(() => {
+            // Also update user name
+            return prisma.users.updateMany({
+              where: { student_id: existingId },
+              data: { name },
+            });
+          })
+        );
+        updated++;
+      } else {
+        // New student
+        const studentId = `stu_${now}_${i}`;
+        const userId = `user_${now}_${i}`;
 
-      studentRecords.push({
-        id: studentId,
-        name,
-        email: normalizedEmail,
-        department_id: 'dept1',
-        semester: semesterNum,
-        course: course || 'IT',
-        division,
-        batch: batch || null,
-      });
+        newStudentRecords.push({
+          id: studentId,
+          name,
+          email: normalizedEmail,
+          department_id: 'dept1',
+          semester: semesterNum,
+          course: course || 'IT',
+          division,
+          batch: batch || null,
+        });
 
-      userRecords.push({
-        id: userId,
-        name,
-        email: normalizedEmail,
-        role: 'student',
-        student_id: studentId,
-      });
+        newUserRecords.push({
+          id: userId,
+          name,
+          email: normalizedEmail,
+          role: 'student',
+          student_id: studentId,
+        });
 
-      // Mark as used to prevent duplicates within the same batch
-      existingEmails.add(normalizedEmail);
+        // Mark as existing for rest of batch
+        existingByEmail.set(normalizedEmail, studentId);
+        created++;
+      }
     }
 
-    if (studentRecords.length === 0) {
-      return NextResponse.json({
-        error: 'No valid students to create',
-        details: errors.slice(0, 10),
-      }, { status: 400 });
+    // Execute all updates in parallel
+    if (updatePromises.length > 0) {
+      await Promise.all(updatePromises);
     }
 
-    // Bulk create students
-    await prisma.students.createMany({
-      data: studentRecords,
-      skipDuplicates: true,
-    });
+    // Bulk create new students
+    if (newStudentRecords.length > 0) {
+      await prisma.students.createMany({
+        data: newStudentRecords,
+        skipDuplicates: true,
+      });
 
-    // Bulk create users
-    await prisma.users.createMany({
-      data: userRecords,
-      skipDuplicates: true,
-    });
+      await prisma.users.createMany({
+        data: newUserRecords,
+        skipDuplicates: true,
+      });
+    }
 
     return NextResponse.json({
-      message: `Created ${studentRecords.length} student(s)`,
-      count: studentRecords.length,
-      skipped: students.length - studentRecords.length,
+      message: `Created ${created} student(s), updated ${updated} student(s)`,
+      created,
+      updated,
+      total: created + updated,
       errors: errors.slice(0, 10),
     }, { status: 201 });
 
   } catch (error: unknown) {
-    console.error('Error bulk creating students:', error);
-    const message = error instanceof Error ? error.message : 'Failed to create students';
+    console.error('Error bulk creating/updating students:', error);
+    const message = error instanceof Error ? error.message : 'Failed to create/update students';
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

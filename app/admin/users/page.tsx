@@ -290,13 +290,14 @@ function UserManagementContent() {
 
   // Confirm and add students from CSV preview - BULK import
   const handleConfirmCSVImport = async () => {
-    const selectedStudents = csvStudents.filter(s => s.selected && !s.exists);
+    // Include ALL selected students - API will create new ones and update existing ones
+    const selectedStudents = csvStudents.filter(s => s.selected);
     if (selectedStudents.length === 0) return;
     
     setIsUploading(true);
     
     try {
-      // Use bulk endpoint for fast parallel creation
+      // Use bulk endpoint - handles both create and update
       const res = await authFetch('/api/admin/students/bulk', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -314,11 +315,11 @@ function UserManagementContent() {
         }
         
         setToastType('success');
-        if (data.skipped > 0) {
-          setToastMessage(`Imported ${data.count} student(s). ${data.skipped} skipped (duplicates).`);
-        } else {
-          setToastMessage(`Successfully imported ${data.count} student(s)!`);
-        }
+        // Show created and updated counts
+        const parts = [];
+        if (data.created > 0) parts.push(`${data.created} added`);
+        if (data.updated > 0) parts.push(`${data.updated} updated`);
+        setToastMessage(parts.length > 0 ? `Students: ${parts.join(', ')}` : 'No changes made');
       } else {
         setToastType('error');
         setToastMessage(data.error || 'Failed to import students');
@@ -486,11 +487,22 @@ function UserManagementContent() {
       }
       
       const student = await res.json();
-      setLocalStudents([...localStudents, student]);
+      
+      if (student.updated) {
+        // Update existing student in list
+        setLocalStudents(prev => prev.map(s => 
+          s.id === student.id ? student : s
+        ));
+        setToastMessage('Student updated successfully!');
+      } else {
+        // Add new student to list
+        setLocalStudents(prev => [...prev, student]);
+        setToastMessage('Student added successfully!');
+      }
+      
       setShowStudentModal(false);
       setNewStudent({ name: '', email: '', semester: '1', course: 'IT', division: 'A', batch: 'A1' });
       setToastType('success');
-      setToastMessage('Student added successfully!');
       setShowToast(true);
     } catch (error) {
       setToastType('error');
@@ -1578,7 +1590,7 @@ function UserManagementContent() {
                     value={newFaculty.facultyCode}
                     onChange={e => setNewFaculty({ ...newFaculty, facultyCode: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-1 focus:ring-gray-300 focus:border-gray-300 outline-none"
-                    placeholder="e.g. IT-F01"
+                    placeholder="e.g. PPM"
                   />
                 </div>
               </div>
@@ -1789,7 +1801,9 @@ function UserManagementContent() {
             {/* Modal Footer */}
             <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between bg-gray-50">
               <span className="text-sm text-gray-500">
-                {csvStudents.filter(s => s.selected && !s.exists).length} of {csvStudents.filter(s => !s.exists).length} selected
+                {csvStudents.filter(s => s.selected).length} of {csvStudents.length} selected
+                {csvStudents.filter(s => s.selected && s.exists).length > 0 && 
+                  ` (${csvStudents.filter(s => s.selected && s.exists).length} will be updated)`}
               </span>
               <div className="flex gap-3">
                 <button
@@ -1800,10 +1814,10 @@ function UserManagementContent() {
                 </button>
                 <button
                   onClick={handleConfirmCSVImport}
-                  disabled={isUploading || csvStudents.filter(s => s.selected && !s.exists).length === 0}
+                  disabled={isUploading || csvStudents.filter(s => s.selected).length === 0}
                   className="px-4 py-2 text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {isUploading ? 'Adding...' : 'Add Students'}
+                  {isUploading ? 'Processing...' : 'Import Students'}
                 </button>
               </div>
             </div>
