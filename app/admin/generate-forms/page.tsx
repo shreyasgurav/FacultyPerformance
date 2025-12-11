@@ -98,10 +98,14 @@ function GenerateFormsContent() {
 
   const selectedFaculty = facultyList.find(f => f.id === selectedFacultyId);
 
-  const filteredFaculty = facultyList.filter(f =>
-    f.name.toLowerCase().includes(facultySearch.toLowerCase()) ||
-    f.email.toLowerCase().includes(facultySearch.toLowerCase())
-  );
+  const filteredFaculty = facultyList.filter(f => {
+    const search = facultySearch.toLowerCase();
+    return (
+      f.name.toLowerCase().includes(search) ||
+      f.email.toLowerCase().includes(search) ||
+      (f.facultyCode && f.facultyCode.toLowerCase().includes(search))
+    );
+  });
 
   const handleFacultySelect = (faculty: Faculty) => {
     setSelectedFacultyId(faculty.id);
