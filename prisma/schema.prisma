@@ -43,6 +43,10 @@ model feedback_forms {
   created_at         DateTime?             @default(now()) @db.Timestamp(0)
   feedback_responses feedback_responses[]
   form_questions     form_questions[]
+
+  // Indexes for efficient student dashboard queries
+  @@index([semester, course, division, status], map: "idx_student_forms")
+  @@index([faculty_email], map: "idx_faculty_email")
 }
 
 // Snapshot of questions for each form (copied from feedback_parameters at form creation)

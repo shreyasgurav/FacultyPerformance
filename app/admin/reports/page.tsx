@@ -153,28 +153,28 @@ function ReportsContent() {
 
   if (isLoading) {
     return (
-      <div className="max-w-6xl mx-auto px-4 py-6">
+      <div className="max-w-6xl mx-auto px-3 sm:px-4 py-4 sm:py-6">
         <div className="animate-pulse">
           {/* Header skeleton */}
-          <div className="mb-6">
-            <div className="w-8 h-8 bg-gray-200 rounded-lg mb-3"></div>
-            <div className="h-7 bg-gray-200 rounded w-48 mb-2"></div>
-            <div className="h-4 bg-gray-100 rounded w-72"></div>
+          <div className="mb-4 sm:mb-6">
+            <div className="w-8 h-8 bg-gray-200 rounded-lg mb-2 sm:mb-3"></div>
+            <div className="h-6 sm:h-7 bg-gray-200 rounded w-40 sm:w-48 mb-2"></div>
+            <div className="h-3 sm:h-4 bg-gray-100 rounded w-56 sm:w-72"></div>
           </div>
           {/* Table skeleton */}
-          <div className="bg-white rounded-2xl border border-gray-100 p-6">
-            <div className="flex justify-between items-center mb-4">
-              <div className="h-6 bg-gray-200 rounded w-40"></div>
-              <div className="h-9 bg-gray-100 rounded w-48"></div>
+          <div className="bg-white rounded-xl sm:rounded-2xl border border-gray-100 p-4 sm:p-6">
+            <div className="flex flex-col sm:flex-row justify-between gap-3 items-start sm:items-center mb-3 sm:mb-4">
+              <div className="h-5 sm:h-6 bg-gray-200 rounded w-32 sm:w-40"></div>
+              <div className="h-8 sm:h-9 bg-gray-100 rounded w-full sm:w-48"></div>
             </div>
-            <div className="space-y-3">
+            <div className="space-y-2 sm:space-y-3">
               {[...Array(6)].map((_, i) => (
-                <div key={i} className="flex gap-4 items-center">
-                  <div className="w-6 h-6 bg-gray-100 rounded-full"></div>
-                  <div className="h-10 bg-gray-100 rounded flex-1"></div>
-                  <div className="h-10 bg-gray-100 rounded w-40"></div>
-                  <div className="h-10 bg-gray-100 rounded w-20"></div>
-                  <div className="h-10 bg-gray-100 rounded w-16"></div>
+                <div key={i} className="flex gap-2 sm:gap-4 items-center">
+                  <div className="w-5 h-5 sm:w-6 sm:h-6 bg-gray-100 rounded-full"></div>
+                  <div className="h-8 sm:h-10 bg-gray-100 rounded flex-1"></div>
+                  <div className="h-8 sm:h-10 bg-gray-100 rounded w-24 sm:w-40 hidden sm:block"></div>
+                  <div className="h-8 sm:h-10 bg-gray-100 rounded w-12 sm:w-20"></div>
+                  <div className="h-8 sm:h-10 bg-gray-100 rounded w-12 sm:w-16"></div>
                 </div>
               ))}
             </div>
@@ -185,28 +185,28 @@ function ReportsContent() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-6">
+    <div className="max-w-6xl mx-auto px-3 sm:px-4 py-4 sm:py-6">
       {/* Header */}
-      <div className="mb-6">
+      <div className="mb-4 sm:mb-6">
         <Link
           href="/admin/dashboard"
-          className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors mb-3"
+          className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors mb-2 sm:mb-3"
         >
           <ArrowLeftIcon className="w-5 h-5" />
         </Link>
-        <h1 className="text-2xl font-bold text-gray-900">Reports & Analytics</h1>
-        <p className="text-gray-500 text-sm mt-1">View detailed analytics for faculty feedback</p>
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Reports & Analytics</h1>
+        <p className="text-gray-500 text-xs sm:text-sm mt-1">View detailed analytics for faculty feedback</p>
       </div>
 
       {/* Faculty Table */}
-      <div className="bg-white rounded-2xl border border-gray-100 p-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
-          <h2 className="text-base font-semibold text-gray-900">
+      <div className="bg-white rounded-xl sm:rounded-2xl border border-gray-100 p-4 sm:p-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 mb-3 sm:mb-4">
+          <h2 className="text-sm sm:text-base font-semibold text-gray-900">
             Faculty Members ({filteredFacultyList.length})
           </h2>
           {/* Search */}
           <div className="flex items-center gap-2">
-            <div className="relative flex-1 min-w-[200px] max-w-xs">
+            <div className="relative flex-1 min-w-[150px] sm:min-w-[200px] max-w-xs">
               <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
@@ -215,7 +215,7 @@ function ReportsContent() {
                 placeholder="Search faculty..."
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-1 focus:ring-gray-300 focus:border-gray-300 outline-none"
+                className="w-full pl-9 pr-3 py-1.5 text-xs sm:text-sm border border-gray-200 rounded-lg focus:ring-1 focus:ring-gray-300 focus:border-gray-300 outline-none"
               />
             </div>
             {searchQuery && (

@@ -19,7 +19,8 @@ interface FeedbackForm {
   faculty_email: string;
   division: string;
   batch: string | null;
-  year: string;
+  year?: string;
+  academic_year?: string;
   course: string;
   status: string;
 }
@@ -150,30 +151,27 @@ function FacultyDashboardContent() {
 
   if (isLoading) {
     return (
-      <div className="max-w-4xl mx-auto px-4 py-6">
+      <div className="max-w-4xl mx-auto px-3 sm:px-4 py-4 sm:py-6">
         <div className="animate-pulse">
           {/* Header skeleton */}
-          <div className="flex items-center justify-between mb-6">
-            <div className="h-7 bg-gray-200 rounded w-48"></div>
-            <div className="flex items-center gap-3">
-              <div className="h-8 bg-gray-100 rounded-lg w-32 hidden sm:block"></div>
-              <div className="h-10 w-10 bg-gray-200 rounded-full"></div>
+          <div className="flex items-center justify-between mb-4 sm:mb-6">
+            <div className="h-6 sm:h-7 bg-gray-200 rounded w-40 sm:w-48"></div>
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="h-7 sm:h-8 bg-gray-100 rounded-lg w-24 sm:w-32 hidden sm:block"></div>
+              <div className="h-8 sm:h-10 w-8 sm:w-10 bg-gray-200 rounded-full"></div>
             </div>
           </div>
           {/* Cards skeleton */}
-          <div className="space-y-4">
-            {[...Array(3)].map((_, i) => (
-              <div key={i} className="bg-white rounded-2xl border border-gray-100 p-5">
-                <div className="flex justify-between items-start">
-                  <div className="flex-1">
-                    <div className="h-5 bg-gray-200 rounded w-48 mb-2"></div>
-                    <div className="h-4 bg-gray-100 rounded w-32 mb-3"></div>
-                    <div className="flex gap-2">
-                      <div className="h-6 bg-gray-100 rounded-full w-20"></div>
-                      <div className="h-6 bg-gray-100 rounded-full w-24"></div>
-                    </div>
+          <div className="space-y-3">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="bg-white rounded-xl border border-gray-100 p-4">
+                <div className="flex justify-between items-center gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="h-4 sm:h-5 bg-gray-200 rounded w-3/4 mb-2"></div>
+                    <div className="h-3 sm:h-4 bg-gray-100 rounded w-1/2 mb-2"></div>
+                    <div className="h-3 bg-gray-100 rounded w-1/4"></div>
                   </div>
-                  <div className="h-9 bg-gray-200 rounded-lg w-28"></div>
+                  <div className="h-8 sm:h-9 bg-gray-200 rounded-lg w-20 sm:w-24 flex-shrink-0"></div>
                 </div>
               </div>
             ))}
@@ -188,12 +186,12 @@ function FacultyDashboardContent() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-6">
+    <div className="max-w-4xl mx-auto px-3 sm:px-4 py-4 sm:py-6">
       {/* Title row with profile */}
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl font-semibold text-gray-900">My Feedback Forms</h2>
+      <div className="flex items-center justify-between mb-4 sm:mb-6">
+        <h2 className="text-lg sm:text-xl font-semibold text-gray-900">My Feedback Forms</h2>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
           {/* Stats */}
           <div className="hidden sm:flex items-center gap-3 px-3 py-1.5 bg-gray-50 rounded-lg text-xs">
             <span className="text-gray-400">Avg Rating: <span className={`font-semibold ${
@@ -207,7 +205,7 @@ function FacultyDashboardContent() {
             <button
               type="button"
               onClick={() => setShowProfile(prev => !prev)}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-gray-100 bg-white hover:bg-gray-50 transition-colors"
+              className="flex items-center gap-2 px-2 sm:px-3 py-1.5 rounded-xl border border-gray-100 bg-white hover:bg-gray-50 transition-colors"
             >
               <div className="h-7 w-7 rounded-full bg-gray-900 text-white flex items-center justify-center text-xs font-medium">
                 {currentFaculty.name.charAt(0).toUpperCase()}
@@ -258,14 +256,46 @@ function FacultyDashboardContent() {
         </div>
       </div>
 
-      {/* Forms table */}
+      {/* Forms */}
       {formStats.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center">
+        <div className="bg-white rounded-xl sm:rounded-2xl border border-gray-100 p-8 sm:p-12 text-center">
           <p className="text-sm text-gray-400">No feedback forms assigned to you yet.</p>
         </div>
       ) : (
         <>
-          <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden mb-6">
+          {/* Mobile Cards View */}
+          <div className="md:hidden space-y-3">
+            {formStats.map(({ form, avgRating }) => (
+              <div key={form.id} className="bg-white rounded-xl border border-gray-100 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-gray-900 truncate">{form.subject_name}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      {form.course === 'AIDS' ? 'AI&DS' : 'IT'} · Div {form.division}{form.batch ? ` · ${form.batch}` : ''}
+                    </p>
+                    <div className="flex items-center gap-2 mt-1.5">
+                      <span className={`text-xs font-semibold ${
+                        avgRating >= 7 ? 'text-green-600' :
+                        avgRating >= 5 ? 'text-yellow-600' : 
+                        avgRating > 0 ? 'text-red-600' : 'text-gray-400'
+                      }`}>
+                        Rating: {avgRating > 0 ? avgRating.toFixed(1) : '-'}/10
+                      </span>
+                    </div>
+                  </div>
+                  <Link
+                    href={`/report/${form.id}`}
+                    className="flex-shrink-0 inline-flex items-center px-3 py-2 text-blue-600 text-xs font-medium rounded-lg hover:text-blue-800 transition-colors"
+                  >
+                    View
+                  </Link>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop Table View */}
+          <div className="hidden md:block bg-white rounded-2xl border border-gray-100 overflow-hidden mb-6">
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
@@ -284,7 +314,8 @@ function FacultyDashboardContent() {
                         {form.subject_code && <p className="text-xs text-gray-400">{form.subject_code}</p>}
                       </td>
                       <td className="py-3 px-4 text-sm text-gray-600">
-                        Year {form.year} · {form.course === 'AIDS' ? 'AI&DS' : 'IT'} · {form.division}{form.batch ? `/${form.batch}` : ''}
+                        {(form.academic_year || form.year) && <span>{(form.academic_year || form.year)} · </span>}
+                        {form.course === 'AIDS' ? 'AI&DS' : 'IT'} · {form.division}{form.batch ? `/${form.batch}` : ''}
                       </td>
                       <td className="py-3 px-4">
                         <span className={`text-sm font-semibold ${

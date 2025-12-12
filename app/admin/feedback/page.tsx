@@ -28,10 +28,21 @@ interface FeedbackResponse {
   student_id: string;
 }
 
+interface Student {
+  id: string;
+  name: string;
+  email: string;
+  semester: number;
+  course: string;
+  division: string;
+  batch: string;
+}
+
 function FeedbackMonitoringContent() {
   const { authFetch } = useAuth();
   const [forms, setForms] = useState<FeedbackForm[]>([]);
   const [responses, setResponses] = useState<FeedbackResponse[]>([]);
+  const [students, setStudents] = useState<Student[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [semesterFilter, setSemesterFilter] = useState('');
   const [courseFilter, setCourseFilter] = useState('');
@@ -58,9 +69,10 @@ function FeedbackMonitoringContent() {
   useEffect(() => {
     async function fetchData() {
       try {
-        const [formsRes, responsesRes] = await Promise.all([
+        const [formsRes, responsesRes, studentsRes] = await Promise.all([
           authFetch('/api/admin/forms'),
           authFetch('/api/responses'),
+          authFetch('/api/admin/students'),
         ]);
 
         if (formsRes.ok) {
@@ -72,6 +84,11 @@ function FeedbackMonitoringContent() {
           const data = await responsesRes.json();
           setResponses(data);
         }
+
+        if (studentsRes.ok) {
+          const data = await studentsRes.json();
+          setStudents(data);
+        }
       } catch (error) {
         console.error('Error fetching data:', error);
       } finally {
@@ -80,7 +97,7 @@ function FeedbackMonitoringContent() {
     }
 
     fetchData();
-  }, []);
+  }, [authFetch]);
 
   const divisions = Array.from(new Set(forms.map(f => f.division)));
 
@@ -105,6 +122,25 @@ function FeedbackMonitoringContent() {
 
   const getResponseCount = (formId: string) => {
     return responses.filter(r => r.form_id === formId).length;
+  };
+
+  const getTotalStudentsForForm = (form: FeedbackForm): number => {
+    // Match students by semester, course, division, and batch (if lab form)
+    return students.filter(student => {
+      const matchesSemester = student.semester === form.semester;
+      const matchesCourse = student.course.toUpperCase() === form.course.toUpperCase();
+      const matchesDivision = student.division.toUpperCase() === form.division.toUpperCase();
+      
+      // If form has a batch (lab form), match batch too
+      // If theory form (no batch), count ALL students in that division
+      if (form.batch) {
+        const matchesBatch = student.batch?.toUpperCase() === form.batch.toUpperCase();
+        return matchesSemester && matchesCourse && matchesDivision && matchesBatch;
+      } else {
+        // Theory form - count all students in this division (regardless of their batch)
+        return matchesSemester && matchesCourse && matchesDivision;
+      }
+    }).length;
   };
 
   // Delete confirmation state
@@ -190,31 +226,31 @@ function FeedbackMonitoringContent() {
 
   if (isLoading) {
     return (
-      <div className="max-w-6xl mx-auto px-4 py-6">
+      <div className="max-w-6xl mx-auto px-3 sm:px-4 py-4 sm:py-6">
         <div className="animate-pulse">
           {/* Header skeleton */}
-          <div className="mb-6">
-            <div className="w-8 h-8 bg-gray-200 rounded-lg mb-3"></div>
-            <div className="h-7 bg-gray-200 rounded w-48 mb-2"></div>
-            <div className="h-4 bg-gray-100 rounded w-64"></div>
+          <div className="mb-4 sm:mb-6">
+            <div className="w-8 h-8 bg-gray-200 rounded-lg mb-2 sm:mb-3"></div>
+            <div className="h-6 sm:h-7 bg-gray-200 rounded w-40 sm:w-48 mb-2"></div>
+            <div className="h-3 sm:h-4 bg-gray-100 rounded w-52 sm:w-64"></div>
           </div>
           {/* Filters skeleton */}
-          <div className="bg-white rounded-2xl border border-gray-100 p-5 mb-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="h-10 bg-gray-100 rounded-lg"></div>
-              <div className="h-10 bg-gray-100 rounded-lg"></div>
-              <div className="h-10 bg-gray-100 rounded-lg"></div>
+          <div className="bg-white rounded-xl sm:rounded-2xl border border-gray-100 p-4 sm:p-5 mb-4 sm:mb-6">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+              <div className="h-9 sm:h-10 bg-gray-100 rounded-lg"></div>
+              <div className="h-9 sm:h-10 bg-gray-100 rounded-lg"></div>
+              <div className="h-9 sm:h-10 bg-gray-100 rounded-lg"></div>
             </div>
           </div>
           {/* Table skeleton */}
-          <div className="bg-white rounded-2xl border border-gray-100 p-6">
-            <div className="h-6 bg-gray-200 rounded w-40 mb-4"></div>
-            <div className="space-y-3">
+          <div className="bg-white rounded-xl sm:rounded-2xl border border-gray-100 p-4 sm:p-6">
+            <div className="h-5 sm:h-6 bg-gray-200 rounded w-32 sm:w-40 mb-3 sm:mb-4"></div>
+            <div className="space-y-2 sm:space-y-3">
               {[...Array(5)].map((_, i) => (
-                <div key={i} className="flex gap-4">
-                  <div className="h-10 bg-gray-100 rounded flex-1"></div>
-                  <div className="h-10 bg-gray-100 rounded w-32"></div>
-                  <div className="h-10 bg-gray-100 rounded w-24"></div>
+                <div key={i} className="flex gap-3 sm:gap-4">
+                  <div className="h-8 sm:h-10 bg-gray-100 rounded flex-1"></div>
+                  <div className="h-8 sm:h-10 bg-gray-100 rounded w-24 sm:w-32 hidden sm:block"></div>
+                  <div className="h-8 sm:h-10 bg-gray-100 rounded w-16 sm:w-24"></div>
                 </div>
               ))}
             </div>
@@ -225,7 +261,7 @@ function FeedbackMonitoringContent() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-6">
+    <div className="max-w-6xl mx-auto px-3 sm:px-4 py-4 sm:py-6">
       {showToast && (
         <Toast message={toastMessage} type="success" onClose={() => setShowToast(false)} />
       )}
@@ -247,20 +283,20 @@ function FeedbackMonitoringContent() {
         isLoading={isDeleting}
       />
 
-      <div className="mb-6">
+      <div className="mb-4 sm:mb-6">
         <Link
           href="/admin/dashboard"
-          className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors mb-3"
+          className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors mb-2 sm:mb-3"
         >
           <ArrowLeftIcon className="w-5 h-5" />
         </Link>
-        <h1 className="text-2xl font-bold text-gray-900">Feedback Monitoring</h1>
-        <p className="text-gray-500 text-sm mt-1">View and analyze feedback responses</p>
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Feedback Monitoring</h1>
+        <p className="text-gray-500 text-xs sm:text-sm mt-1">View and analyze feedback responses</p>
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-2xl border border-gray-100 p-5 mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="bg-white rounded-xl sm:rounded-2xl border border-gray-100 p-4 sm:p-5 mb-4 sm:mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1.5">Semester</label>
             <select
@@ -304,15 +340,15 @@ function FeedbackMonitoringContent() {
       </div>
 
       {/* Forms Table */}
-      <div className="bg-white rounded-2xl border border-gray-100 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-base font-semibold text-gray-900">
+      <div className="bg-white rounded-xl sm:rounded-2xl border border-gray-100 p-4 sm:p-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3 sm:mb-4">
+          <h2 className="text-sm sm:text-base font-semibold text-gray-900">
             Feedback Forms ({filteredForms.length})
           </h2>
           {filteredForms.length > 0 && (
             <button
               onClick={handleBulkDeleteForms}
-              className="inline-flex items-center px-3 py-1.5 bg-red-50 text-red-600 text-sm font-medium rounded-lg hover:bg-red-100 transition-colors"
+              className="inline-flex items-center px-2 sm:px-3 py-1 sm:py-1.5 bg-red-50 text-red-600 text-xs sm:text-sm font-medium rounded-lg hover:bg-red-100 transition-colors"
             >
               Delete All ({filteredForms.length})
             </button>
@@ -337,6 +373,7 @@ function FeedbackMonitoringContent() {
                 <tbody className="divide-y divide-gray-50">
                   {displayedForms.map(form => {
                     const responseCount = getResponseCount(form.id);
+                    const totalStudents = getTotalStudentsForForm(form);
                     
                     return (
                       <tr key={form.id} className="hover:bg-gray-50/50 transition-colors">
@@ -353,7 +390,7 @@ function FeedbackMonitoringContent() {
                         </td>
                         <td className="py-3 px-4">
                           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
-                            {responseCount}
+                            {responseCount} / {totalStudents}
                           </span>
                         </td>
                         <td className="py-3 px-6">

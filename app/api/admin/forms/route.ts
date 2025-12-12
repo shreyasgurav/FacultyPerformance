@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyAuth, hasRole, unauthorizedResponse, forbiddenResponse } from '@/lib/auth';
 
-// GET all feedback forms (admin, faculty, student can view)
+// GET feedback forms (admin, faculty, student can view)
+// Supports optional filtering via query params: semester, course, division, batch, status
 export async function GET(request: NextRequest) {
   const auth = await verifyAuth(request);
   if (!auth.authenticated) {
@@ -10,7 +11,36 @@ export async function GET(request: NextRequest) {
   }
   
   try {
+    const { searchParams } = new URL(request.url);
+    const semester = searchParams.get('semester');
+    const course = searchParams.get('course');
+    const division = searchParams.get('division');
+    const batch = searchParams.get('batch');
+    const status = searchParams.get('status');
+    const facultyEmail = searchParams.get('facultyEmail');
+
+    // Build where clause for server-side filtering
+    const where: {
+      semester?: number;
+      course?: string;
+      division?: string;
+      batch?: string | null;
+      status?: 'active' | 'closed';
+      faculty_email?: string;
+    } = {};
+
+    if (semester) where.semester = parseInt(semester, 10);
+    if (course) where.course = course;
+    if (division) where.division = division;
+    if (status) where.status = status as 'active' | 'closed';
+    if (facultyEmail) where.faculty_email = facultyEmail.toLowerCase();
+    
+    // For batch: if specified, filter by it; for students with batch, also get division-level forms
+    // This is handled client-side for flexibility, but batch filter works server-side too
+    if (batch) where.batch = batch;
+
     const forms = await prisma.feedback_forms.findMany({
+      where: Object.keys(where).length > 0 ? where : undefined,
       orderBy: { created_at: 'desc' },
     });
     

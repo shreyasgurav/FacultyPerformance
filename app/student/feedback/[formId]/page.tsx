@@ -80,12 +80,10 @@ function FeedbackFormContent({ params }: PageProps) {
       }
 
       try {
-        // Fetch form, student data, parameters, and responses
-        const [formRes, studentRes, responsesRes, formsRes] = await Promise.all([
+        // Step 1: Fetch form and student data in parallel (needed for authorization)
+        const [formRes, studentRes] = await Promise.all([
           authFetch(`/api/forms/${params.formId}`),
           authFetch(`/api/admin/students/${studentId}`),
-          authFetch('/api/responses'),
-          authFetch('/api/admin/forms'),
         ]);
 
         let formData: FeedbackForm | null = null;
@@ -100,25 +98,40 @@ function FeedbackFormContent({ params }: PageProps) {
           setStudent(currentStudent);
         }
 
-        let allResponses: FeedbackResponse[] = [];
+        // Step 2: Fetch filtered data based on student info
+        // - Responses: only this student's responses
+        // - Forms: filtered by student's semester/course/division for "next form"
+        // - Questions: for this specific form
+        const formsQuery = currentStudent ? new URLSearchParams({
+          semester: currentStudent.semester.toString(),
+          course: currentStudent.course,
+          division: currentStudent.division,
+          status: 'active',
+        }) : '';
+
+        const [responsesRes, formsRes, paramsRes] = await Promise.all([
+          authFetch(`/api/responses?studentId=${studentId}`),
+          currentStudent ? authFetch(`/api/admin/forms?${formsQuery}`) : Promise.resolve({ ok: false, json: () => [] }),
+          authFetch(`/api/forms/${params.formId}/questions`),
+        ]);
+
+        let studentResponses: FeedbackResponse[] = [];
         if (responsesRes.ok) {
-          allResponses = await responsesRes.json();
-          setResponses(allResponses);
+          studentResponses = await responsesRes.json();
+          setResponses(studentResponses);
         }
 
-        let allForms: FeedbackForm[] = [];
+        let studentForms: FeedbackForm[] = [];
         if (formsRes.ok) {
-          allForms = await formsRes.json();
+          studentForms = await formsRes.json();
         }
 
-        // Check if already submitted
-        const hasSubmitted = allResponses.some(
-          r => r.form_id === params.formId && r.student_id === studentId
+        // Check if already submitted (responses already filtered by studentId)
+        const hasSubmitted = studentResponses.some(
+          r => r.form_id === params.formId
         );
         setAlreadySubmitted(hasSubmitted);
 
-        // Fetch questions for this specific form (snapshot or fallback to template)
-        const paramsRes = await authFetch(`/api/forms/${params.formId}/questions`);
         if (paramsRes.ok) {
           const paramsData = await paramsRes.json();
           setParameters(paramsData);
@@ -138,23 +151,17 @@ function FeedbackFormContent({ params }: PageProps) {
           }
         }
 
-        // Build pending forms list for this student (ordered as received)
-        if (currentStudent && allForms.length > 0) {
-          const studentForms = allForms.filter(f => 
-            f.semester === currentStudent.semester &&
-            f.course === currentStudent.course &&
-            f.division === currentStudent.division &&
-            f.status === 'active' &&
-            (!f.batch || f.batch === currentStudent.batch)
+        // Build pending forms list for this student (server-filtered, just filter by batch)
+        if (currentStudent && studentForms.length > 0) {
+          // Filter by batch: include forms with no batch (theory) or matching batch (lab)
+          const filteredForms = studentForms.filter(f => 
+            !f.batch || f.batch === currentStudent.batch
           );
 
-          const submittedSet = new Set(
-            allResponses
-              .filter(r => r.student_id === studentId)
-              .map(r => r.form_id)
-          );
+          // Responses are already filtered by studentId
+          const submittedSet = new Set(studentResponses.map(r => r.form_id));
 
-          setPendingForms(studentForms.filter(f => !submittedSet.has(f.id)));
+          setPendingForms(filteredForms.filter(f => !submittedSet.has(f.id)));
         }
       } catch (error) {
         console.error('Error loading data:', error);
@@ -164,13 +171,12 @@ function FeedbackFormContent({ params }: PageProps) {
     }
 
     fetchData();
-  }, [params.formId, studentId]);
+  }, [params.formId, studentId, authFetch]);
 
+  // Responses are already filtered by studentId from API, just check form_id
   useEffect(() => {
-    if (studentId) {
-      const hasSubmitted = responses.some(
-        r => r.form_id === params.formId && r.student_id === studentId
-      );
+    if (studentId && responses.length > 0) {
+      const hasSubmitted = responses.some(r => r.form_id === params.formId);
       setAlreadySubmitted(hasSubmitted);
     }
   }, [studentId, responses, params.formId]);
@@ -322,18 +328,16 @@ function FeedbackFormContent({ params }: PageProps) {
 
       {/* Header */}
       <div className="mb-10">
-        <div className="flex items-center gap-3">
-          <Link
-            href="/student/dashboard"
-            className="w-10 h-10 flex items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-600 hover:text-gray-900 hover:border-gray-300 transition-colors"
-            aria-label="Back to dashboard"
-          >
-            <ArrowLeftIcon className="w-5 h-5" />
-          </Link>
-          <div>
-            <h1 className="text-xl font-bold text-gray-900">{form.faculty_name}</h1>
-            <p className="text-sm text-gray-500 mt-1">{form.subject_name}</p>
-          </div>
+        <Link
+          href="/student/dashboard"
+          className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors mb-3"
+          aria-label="Back to dashboard"
+        >
+          <ArrowLeftIcon className="w-5 h-5" />
+        </Link>
+        <div>
+        <h1 className="text-xl font-bold text-gray-900">{form.faculty_name}</h1>
+        <p className="text-sm text-gray-500 mt-1">{form.subject_name}</p>
         </div>
       </div>
 

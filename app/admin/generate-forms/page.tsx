@@ -104,7 +104,7 @@ function GenerateFormsContent() {
       f.name.toLowerCase().includes(search) ||
       f.email.toLowerCase().includes(search) ||
       (f.facultyCode && f.facultyCode.toLowerCase().includes(search))
-    );
+  );
   });
 
   const handleFacultySelect = (faculty: Faculty) => {
@@ -243,29 +243,29 @@ function GenerateFormsContent() {
     const header = lines[0]
       .split(',')
       .map(h => stripQuotes(h).toLowerCase());
-    const requiredFields = ['subject', 'faculty_email', 'semester', 'course', 'division'];
-    const missingFields = requiredFields.filter(f => !header.includes(f));
+        const requiredFields = ['subject', 'faculty_email', 'semester', 'course', 'division'];
+        const missingFields = requiredFields.filter(f => !header.includes(f));
+        
+        if (missingFields.length > 0) {
+          setCsvError(`Missing required columns: ${missingFields.join(', ')}`);
+          setTimeout(() => setCsvError(''), 5000);
+          return;
+        }
 
-    if (missingFields.length > 0) {
-      setCsvError(`Missing required columns: ${missingFields.join(', ')}`);
-      setTimeout(() => setCsvError(''), 5000);
-      return;
-    }
+        const subjectIdx = header.indexOf('subject');
+        const emailIdx = header.indexOf('faculty_email');
+        const semesterIdx = header.indexOf('semester');
+        const courseIdx = header.indexOf('course');
+        const divisionIdx = header.indexOf('division');
+        const batchIdx = header.indexOf('batch');
+        const yearIdx = header.indexOf('academic_year');
 
-    const subjectIdx = header.indexOf('subject');
-    const emailIdx = header.indexOf('faculty_email');
-    const semesterIdx = header.indexOf('semester');
-    const courseIdx = header.indexOf('course');
-    const divisionIdx = header.indexOf('division');
-    const batchIdx = header.indexOf('batch');
-    const yearIdx = header.indexOf('academic_year');
+        const parsedForms: FormEntry[] = [];
+        const errors: string[] = [];
 
-    const parsedForms: FormEntry[] = [];
-    const errors: string[] = [];
-
-    for (let i = 1; i < lines.length; i++) {
+        for (let i = 1; i < lines.length; i++) {
       const rawValues = lines[i].split(',');
-
+          
       const subject = stripQuotes(rawValues[subjectIdx] ?? '');
       const email = stripQuotes(rawValues[emailIdx] ?? '');
       const semester = stripQuotes(rawValues[semesterIdx] ?? '');
@@ -274,41 +274,41 @@ function GenerateFormsContent() {
       const batch = batchIdx >= 0 ? stripQuotes(rawValues[batchIdx] ?? '') : '';
       const year = yearIdx >= 0 ? stripQuotes(rawValues[yearIdx] ?? '') : academicYear;
 
-      if (!subject || !email || !semester || !course || !division) {
-        errors.push(`Row ${i + 1}: Missing required fields`);
-        continue;
-      }
+          if (!subject || !email || !semester || !course || !division) {
+            errors.push(`Row ${i + 1}: Missing required fields`);
+            continue;
+          }
 
-      const faculty = facultyList.find(f => f.email.toLowerCase() === email.toLowerCase());
-      if (!faculty) {
-        errors.push(`Row ${i + 1}: Faculty not found for email ${email}`);
-        continue;
-      }
+          const faculty = facultyList.find(f => f.email.toLowerCase() === email.toLowerCase());
+          if (!faculty) {
+            errors.push(`Row ${i + 1}: Faculty not found for email ${email}`);
+            continue;
+          }
 
-      parsedForms.push({
-        subjectName: subject,
-        facultyName: faculty.name,
-        facultyEmail: faculty.email,
-        division: division.toUpperCase(),
-        semester: semester,
-        course: course.toUpperCase(),
-        formType: batch ? 'batch' : 'division',
-        academicYear: year || academicYear,
-        ...(batch && { batch: batch.toUpperCase() }),
-      });
-    }
+          parsedForms.push({
+            subjectName: subject,
+            facultyName: faculty.name,
+            facultyEmail: faculty.email,
+            division: division.toUpperCase(),
+            semester: semester,
+            course: course.toUpperCase(),
+            formType: batch ? 'batch' : 'division',
+            academicYear: year || academicYear,
+            ...(batch && { batch: batch.toUpperCase() }),
+          });
+        }
 
-    if (errors.length > 0) {
-      setCsvError(`${errors.length} row(s) skipped: ${errors.slice(0, 3).join('; ')}${errors.length > 3 ? '...' : ''}`);
-      setTimeout(() => setCsvError(''), 5000);
-    }
+        if (errors.length > 0) {
+          setCsvError(`${errors.length} row(s) skipped: ${errors.slice(0, 3).join('; ')}${errors.length > 3 ? '...' : ''}`);
+          setTimeout(() => setCsvError(''), 5000);
+        }
 
-    if (parsedForms.length > 0) {
-      setCsvData(parsedForms);
+        if (parsedForms.length > 0) {
+          setCsvData(parsedForms);
       const label = source === 'csv' ? 'CSV' : 'Google Sheet';
       const totalRows = lines.length - 1; // exclude header
       setSuccessMessage(`Parsed ${parsedForms.length} form(s) out of ${totalRows} row(s) from ${label}`);
-      setTimeout(() => setSuccessMessage(''), 3000);
+          setTimeout(() => setSuccessMessage(''), 3000);
     } else if (errors.length === 0) {
       setCsvError('No valid rows found in CSV');
       setTimeout(() => setCsvError(''), 3000);
@@ -371,16 +371,16 @@ function GenerateFormsContent() {
   };
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-8">
-      <div className="mb-8">
+    <div className="max-w-2xl mx-auto px-3 sm:px-4 py-4 sm:py-8">
+      <div className="mb-6 sm:mb-8">
         <Link
           href="/admin/dashboard"
-          className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors mb-3"
+          className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors mb-2 sm:mb-3"
         >
           <ArrowLeftIcon className="w-5 h-5" />
         </Link>
-        <h1 className="text-2xl font-bold text-gray-900">Generate Forms</h1>
-        <p className="text-gray-500 text-sm mt-1">Create feedback forms for divisions or batches</p>
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Generate Forms</h1>
+        <p className="text-gray-500 text-xs sm:text-sm mt-1">Create feedback forms for divisions or batches</p>
       </div>
 
       {successMessage && (
@@ -396,11 +396,11 @@ function GenerateFormsContent() {
       )}
 
       {/* Input Mode Toggle */}
-      <div className="bg-white rounded-2xl border border-gray-100 p-4 mb-6">
+      <div className="bg-white rounded-xl sm:rounded-2xl border border-gray-100 p-3 sm:p-4 mb-4 sm:mb-6">
         <div className="flex gap-2">
           <button
             onClick={() => { setInputMode('manual'); setCsvData([]); }}
-            className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-colors ${
+            className={`flex-1 py-2 sm:py-2.5 px-3 sm:px-4 rounded-lg text-xs sm:text-sm font-medium transition-colors ${
               inputMode === 'manual'
                 ? 'bg-gray-900 text-white'
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -410,7 +410,7 @@ function GenerateFormsContent() {
           </button>
           <button
             onClick={() => setInputMode('csv')}
-            className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-colors ${
+            className={`flex-1 py-2 sm:py-2.5 px-3 sm:px-4 rounded-lg text-xs sm:text-sm font-medium transition-colors ${
               inputMode === 'csv'
                 ? 'bg-gray-900 text-white'
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -423,9 +423,9 @@ function GenerateFormsContent() {
 
       {inputMode === 'csv' ? (
         /* CSV Upload Mode */
-        <div className="bg-white rounded-2xl border border-gray-100 p-6 mb-6">
-          <h2 className="text-sm font-semibold text-gray-900 mb-2">Upload CSV File</h2>
-          <p className="text-xs text-gray-500 mb-4">
+        <div className="bg-white rounded-xl sm:rounded-2xl border border-gray-100 p-4 sm:p-6 mb-4 sm:mb-6">
+          <h2 className="text-xs sm:text-sm font-semibold text-gray-900 mb-1.5 sm:mb-2">Upload CSV File</h2>
+          <p className="text-xs text-gray-500 mb-3 sm:mb-4">
             Upload your CSV file using the template headers expected by the parser.
           </p>
 
@@ -503,10 +503,10 @@ function GenerateFormsContent() {
         </div>
       ) : (
         /* Manual Entry Mode */
-        <div className="bg-white rounded-2xl border border-gray-100 p-6 mb-6">
-          <div className="space-y-4">
+        <div className="bg-white rounded-xl sm:rounded-2xl border border-gray-100 p-4 sm:p-6 mb-4 sm:mb-6">
+          <div className="space-y-3 sm:space-y-4">
             {/* Row 1: Semester & Course */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2 sm:gap-3">
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1.5">Semester</label>
                 <select
@@ -536,7 +536,7 @@ function GenerateFormsContent() {
             </div>
 
             {/* Row 2: Division & Batch (optional) */}
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-3 gap-2 sm:gap-3">
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1.5">Division</label>
                 <select
@@ -668,15 +668,15 @@ function GenerateFormsContent() {
       )}
 
       {generatedForms.length > 0 && (
-        <div className="bg-white rounded-2xl border border-gray-100 p-6 mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold text-gray-900">
+        <div className="bg-white rounded-xl sm:rounded-2xl border border-gray-100 p-4 sm:p-6 mb-4 sm:mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3 sm:mb-4">
+            <h2 className="text-xs sm:text-sm font-semibold text-gray-900">
               Forms to Generate ({generatedForms.length})
             </h2>
             <button
               onClick={generateAllForms}
               disabled={isSubmitting}
-              className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors disabled:opacity-50"
+              className="px-3 sm:px-4 py-1.5 sm:py-2 bg-green-600 text-white rounded-lg text-xs sm:text-sm font-medium hover:bg-green-700 transition-colors disabled:opacity-50 w-full sm:w-auto"
             >
               {isSubmitting ? 'Generating...' : 'Generate All'}
             </button>

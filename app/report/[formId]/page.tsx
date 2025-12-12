@@ -43,6 +43,16 @@ interface FormQuestion {
   question_type: string;
 }
  
+interface Student {
+  id: string;
+  name: string;
+  email: string;
+  semester: number;
+  course: string;
+  division: string;
+  batch: string;
+}
+ 
 function ReportContent() {
   const params = useParams();
   const { authFetch, userRole } = useAuth();
@@ -51,17 +61,19 @@ function ReportContent() {
   const [form, setForm] = useState<FeedbackForm | null>(null);
   const [responses, setResponses] = useState<FeedbackResponse[]>([]);
   const [formQuestions, setFormQuestions] = useState<FormQuestion[]>([]);
+  const [students, setStudents] = useState<Student[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [notAuthorized, setNotAuthorized] = useState(false);
 
   useEffect(() => {
     async function fetchData() {
       try {
-        // Fetch form, responses, and form-specific questions
-        const [formsRes, responsesRes, questionsRes] = await Promise.all([
+        // Fetch form, responses, form-specific questions, and students
+        const [formsRes, responsesRes, questionsRes, studentsRes] = await Promise.all([
           authFetch('/api/admin/forms'),
           authFetch('/api/responses'),
           authFetch(`/api/forms/${formId}/questions`),  // Get form-specific questions
+          authFetch('/api/admin/students'),
         ]);
 
         let foundForm: FeedbackForm | null = null;
@@ -81,6 +93,11 @@ function ReportContent() {
           setFormQuestions(questionsData);
         }
 
+        if (studentsRes.ok) {
+          const studentsData = await studentsRes.json();
+          setStudents(studentsData);
+        }
+
         // SECURITY: Check if faculty is authorized to view this form's report
         // Admin can see all reports, faculty can only see their own forms
         if (userRole?.role === 'faculty' && foundForm) {
@@ -98,7 +115,7 @@ function ReportContent() {
     }
 
     fetchData();
-  }, [formId]);
+  }, [formId, authFetch, userRole]);
 
   // Helper to normalize rating to 0-10 scale based on question type
   const normalizeRating = (rating: number, questionType: string): number => {
@@ -250,6 +267,25 @@ function ReportContent() {
 
   const stats = getStats();
 
+  const getTotalStudentsForForm = (form: FeedbackForm): number => {
+    // Match students by semester, course, division, and batch (if lab form)
+    return students.filter(student => {
+      const matchesSemester = student.semester === form.semester;
+      const matchesCourse = student.course.toUpperCase() === form.course.toUpperCase();
+      const matchesDivision = student.division.toUpperCase() === form.division.toUpperCase();
+      
+      // If form has a batch (lab form), match batch too
+      // If theory form (no batch), count ALL students in that division
+      if (form.batch) {
+        const matchesBatch = student.batch?.toUpperCase() === form.batch.toUpperCase();
+        return matchesSemester && matchesCourse && matchesDivision && matchesBatch;
+      } else {
+        // Theory form - count all students in this division (regardless of their batch)
+        return matchesSemester && matchesCourse && matchesDivision;
+      }
+    }).length;
+  };
+
   // Determine back URL based on user role
   const getBackUrl = () => {
     if (userRole?.role === 'admin') {
@@ -352,9 +388,9 @@ function ReportContent() {
             <p className="text-sm text-gray-500 mt-1">
               {form.academic_year} · {form.faculty_name} · Sem {form.semester} · {form.course === 'AIDS' ? 'AI & DS' : 'IT'} · Div {form.division}{form.batch ? ` / Batch ${form.batch}` : ''}
             </p>
-            {stats && (
+            {stats && userRole?.role === 'admin' && form && (
               <p className="text-xs text-gray-400 mt-2">
-                {stats.responseCount} response{stats.responseCount !== 1 ? 's' : ''}
+                {stats.responseCount} / {getTotalStudentsForForm(form)} response{stats.responseCount !== 1 ? 's' : ''}
               </p>
             )}
           </div>

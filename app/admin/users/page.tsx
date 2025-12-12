@@ -787,7 +787,7 @@ function UserManagementContent() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-6">
+    <div className="max-w-6xl mx-auto px-3 sm:px-4 py-4 sm:py-6">
       {showToast && (
         <Toast message={toastMessage} type={toastType} onClose={() => setShowToast(false)} />
       )}
@@ -803,44 +803,44 @@ function UserManagementContent() {
         isLoading={isDeleting}
       />
 
-      <div className="mb-6">
+      <div className="mb-4 sm:mb-6">
         <Link
           href="/admin/dashboard"
-          className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors mb-3"
+          className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors mb-2 sm:mb-3"
         >
           <ArrowLeftIcon className="w-5 h-5" />
         </Link>
-        <h1 className="text-2xl font-bold text-gray-900">User Management</h1>
-        <p className="text-gray-500 text-sm mt-1">Manage student and faculty accounts</p>
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-900">User Management</h1>
+        <p className="text-gray-500 text-xs sm:text-sm mt-1">Manage student and faculty accounts</p>
       </div>
 
       {/* Loading State - Skeleton */}
       {isLoading && (
         <div className="animate-pulse">
           {/* Tabs skeleton */}
-          <div className="flex gap-2 mb-6">
-            <div className="h-10 bg-gray-200 rounded-xl w-28"></div>
-            <div className="h-10 bg-gray-100 rounded-xl w-24"></div>
-            <div className="h-10 bg-gray-100 rounded-xl w-24"></div>
+          <div className="flex gap-1.5 sm:gap-2 mb-4 sm:mb-6">
+            <div className="h-8 sm:h-10 bg-gray-200 rounded-lg sm:rounded-xl w-24 sm:w-28"></div>
+            <div className="h-8 sm:h-10 bg-gray-100 rounded-lg sm:rounded-xl w-20 sm:w-24"></div>
+            <div className="h-8 sm:h-10 bg-gray-100 rounded-lg sm:rounded-xl w-20 sm:w-24"></div>
           </div>
           {/* Table skeleton */}
-          <div className="bg-white rounded-2xl border border-gray-100 p-6">
-            <div className="flex justify-between items-center mb-4">
-              <div className="h-6 bg-gray-200 rounded w-32"></div>
-              <div className="h-9 bg-gray-200 rounded w-28"></div>
+          <div className="bg-white rounded-xl sm:rounded-2xl border border-gray-100 p-4 sm:p-6">
+            <div className="flex flex-col sm:flex-row justify-between gap-3 items-start sm:items-center mb-3 sm:mb-4">
+              <div className="h-5 sm:h-6 bg-gray-200 rounded w-24 sm:w-32"></div>
+              <div className="h-7 sm:h-9 bg-gray-200 rounded w-full sm:w-28"></div>
             </div>
-            <div className="flex gap-2 mb-4">
-              <div className="h-9 bg-gray-100 rounded-lg flex-1 max-w-xs"></div>
-              <div className="h-9 bg-gray-100 rounded-lg w-28"></div>
-              <div className="h-9 bg-gray-100 rounded-lg w-28"></div>
+            <div className="flex flex-wrap gap-2 mb-3 sm:mb-4">
+              <div className="h-8 sm:h-9 bg-gray-100 rounded-lg flex-1 min-w-[120px] max-w-xs"></div>
+              <div className="h-8 sm:h-9 bg-gray-100 rounded-lg w-20 sm:w-28"></div>
+              <div className="h-8 sm:h-9 bg-gray-100 rounded-lg w-20 sm:w-28"></div>
             </div>
-            <div className="space-y-3">
+            <div className="space-y-2 sm:space-y-3">
               {[...Array(6)].map((_, i) => (
-                <div key={i} className="flex gap-4">
-                  <div className="h-12 bg-gray-100 rounded flex-1"></div>
-                  <div className="h-12 bg-gray-100 rounded w-40"></div>
-                  <div className="h-12 bg-gray-100 rounded w-20"></div>
-                  <div className="h-12 bg-gray-100 rounded w-16"></div>
+                <div key={i} className="flex gap-2 sm:gap-4">
+                  <div className="h-10 sm:h-12 bg-gray-100 rounded flex-1"></div>
+                  <div className="h-10 sm:h-12 bg-gray-100 rounded w-24 sm:w-40 hidden sm:block"></div>
+                  <div className="h-10 sm:h-12 bg-gray-100 rounded w-14 sm:w-20"></div>
+                  <div className="h-10 sm:h-12 bg-gray-100 rounded w-12 sm:w-16"></div>
                 </div>
               ))}
             </div>
@@ -849,10 +849,10 @@ function UserManagementContent() {
       )}
 
       {/* Tabs */}
-      {!isLoading && <div className="flex gap-2 mb-6">
+      {!isLoading && <div className="flex gap-1.5 sm:gap-2 mb-4 sm:mb-6 overflow-x-auto">
         <button
           onClick={() => setActiveTab('students')}
-          className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+          className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${
             activeTab === 'students'
               ? 'bg-gray-900 text-white'
               : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -862,7 +862,7 @@ function UserManagementContent() {
         </button>
         <button
           onClick={() => setActiveTab('faculty')}
-          className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+          className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${
             activeTab === 'faculty'
               ? 'bg-gray-900 text-white'
               : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -872,7 +872,7 @@ function UserManagementContent() {
         </button>
         <button
           onClick={() => setActiveTab('admins')}
-          className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+          className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${
             activeTab === 'admins'
               ? 'bg-gray-900 text-white'
               : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -884,24 +884,24 @@ function UserManagementContent() {
 
       {/* Students Tab */}
       {!isLoading && activeTab === 'students' && (
-        <div className="bg-white rounded-2xl border border-gray-100 p-6">
+        <div className="bg-white rounded-xl sm:rounded-2xl border border-gray-100 p-4 sm:p-6">
           {/* Header with title and action buttons */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
-            <h2 className="text-base font-semibold text-gray-900">Students</h2>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 mb-3 sm:mb-4">
+            <h2 className="text-sm sm:text-base font-semibold text-gray-900">Students</h2>
             <div className="flex items-center gap-2">
               {filteredStudents.length > 0 && (
                 <button
                   onClick={handleBulkDeleteStudents}
-                  className="inline-flex items-center px-3 py-1.5 bg-red-50 text-red-600 text-sm font-medium rounded-lg hover:bg-red-100 transition-colors"
+                  className="inline-flex items-center px-2 sm:px-3 py-1 sm:py-1.5 bg-red-50 text-red-600 text-xs sm:text-sm font-medium rounded-lg hover:bg-red-100 transition-colors"
                 >
                   Delete All ({filteredStudents.length})
                 </button>
               )}
               <button
                 onClick={() => setShowStudentModal(true)}
-                className="inline-flex items-center px-3 py-1.5 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors"
+                className="inline-flex items-center px-2 sm:px-3 py-1 sm:py-1.5 bg-gray-900 text-white text-xs sm:text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors"
               >
-                <PlusIcon className="w-4 h-4 mr-1.5" />
+                <PlusIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-1.5" />
                 Add Student
               </button>
             </div>
@@ -1047,24 +1047,24 @@ function UserManagementContent() {
 
       {/* Faculty Tab */}
       {!isLoading && activeTab === 'faculty' && (
-        <div className="bg-white rounded-2xl border border-gray-100 p-6">
+        <div className="bg-white rounded-xl sm:rounded-2xl border border-gray-100 p-4 sm:p-6">
           {/* Header with title and action buttons */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
-            <h2 className="text-base font-semibold text-gray-900">Faculty</h2>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 mb-3 sm:mb-4">
+            <h2 className="text-sm sm:text-base font-semibold text-gray-900">Faculty</h2>
             <div className="flex items-center gap-2">
               {filteredFaculty.length > 0 && (
                 <button
                   onClick={handleBulkDeleteFaculty}
-                  className="inline-flex items-center px-3 py-1.5 bg-red-50 text-red-600 text-sm font-medium rounded-lg hover:bg-red-100 transition-colors"
+                  className="inline-flex items-center px-2 sm:px-3 py-1 sm:py-1.5 bg-red-50 text-red-600 text-xs sm:text-sm font-medium rounded-lg hover:bg-red-100 transition-colors"
                 >
                   Delete All ({filteredFaculty.length})
                 </button>
               )}
               <button
                 onClick={() => setShowFacultyModal(true)}
-                className="inline-flex items-center px-3 py-1.5 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors"
+                className="inline-flex items-center px-2 sm:px-3 py-1 sm:py-1.5 bg-gray-900 text-white text-xs sm:text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors"
               >
-                <PlusIcon className="w-4 h-4 mr-1.5" />
+                <PlusIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-1.5" />
                 Add Faculty
               </button>
             </div>
@@ -1145,19 +1145,19 @@ function UserManagementContent() {
 
       {/* Admins Tab */}
       {!isLoading && activeTab === 'admins' && (
-        <div className="bg-white rounded-2xl border border-gray-100 p-6">
+        <div className="bg-white rounded-xl sm:rounded-2xl border border-gray-100 p-4 sm:p-6">
           {/* Header with title and action button */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
-            <div>
-              <h2 className="text-base font-semibold text-gray-900">Admin Access</h2>
-              <p className="text-xs text-gray-500 mt-0.5">Manage who has admin access to this system</p>
+          <div className="flex items-start sm:items-center justify-between gap-3 sm:gap-4 mb-3 sm:mb-4">
+            <div className="min-w-0 flex-1">
+              <h2 className="text-sm sm:text-base font-semibold text-gray-900">Admin Access</h2>
+              <p className="text-xs text-gray-500 mt-0.5">Manage who has admin access</p>
             </div>
             <button
               onClick={() => setShowAdminModal(true)}
-              className="inline-flex items-center px-3 py-1.5 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors"
+              className="inline-flex items-center px-2 sm:px-3 py-1 sm:py-1.5 bg-gray-900 text-white text-xs sm:text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors flex-shrink-0"
             >
-              <PlusIcon className="w-4 h-4 mr-1.5" />
-              Add Admin
+              <PlusIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-1.5" />
+              <span className="hidden xs:inline">Add</span> Admin
             </button>
           </div>
 
@@ -1238,17 +1238,17 @@ function UserManagementContent() {
 
       {/* Add Admin Modal */}
       {showAdminModal && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden">
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-3 sm:p-4">
+          <div className="bg-white rounded-xl sm:rounded-2xl shadow-2xl max-w-md w-full overflow-hidden">
             {/* Modal Header */}
-            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+            <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200 flex items-center justify-between">
               <div>
-                <h3 className="text-lg font-semibold text-gray-900">Add Admin</h3>
-                <p className="text-sm text-gray-500">Grant admin access to a user</p>
+                <h3 className="text-base sm:text-lg font-semibold text-gray-900">Add Admin</h3>
+                <p className="text-xs sm:text-sm text-gray-500">Grant admin access to a user</p>
               </div>
               <button
                 onClick={() => setShowAdminModal(false)}
-                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                className="p-1.5 sm:p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1257,10 +1257,10 @@ function UserManagementContent() {
             </div>
 
             {/* Modal Body */}
-            <div className="px-6 py-5">
-              <div className="space-y-4">
+            <div className="px-4 sm:px-6 py-4 sm:py-5">
+              <div className="space-y-3 sm:space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                     Email Address <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -1270,10 +1270,10 @@ function UserManagementContent() {
                     className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 outline-none"
                     placeholder="admin@example.com"
                   />
-                  <p className="text-xs text-gray-500 mt-1">Any email domain is allowed for admins</p>
+                  <p className="text-xs text-gray-500 mt-1">Any email domain is allowed</p>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                     Name <span className="text-gray-400">(optional)</span>
                   </label>
                   <input
@@ -1288,20 +1288,20 @@ function UserManagementContent() {
             </div>
 
             {/* Modal Footer */}
-            <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3">
+            <div className="px-4 sm:px-6 py-3 sm:py-4 border-t border-gray-100 flex justify-end gap-2 sm:gap-3">
               <button
                 onClick={() => setShowAdminModal(false)}
-                className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                className="px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleAddAdmin}
                 disabled={!newAdmin.email || isAddingAdmin}
-                className="px-4 py-2 text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                className="px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
                 {isAddingAdmin && (
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <div className="w-3.5 h-3.5 sm:w-4 sm:h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                 )}
                 {isAddingAdmin ? 'Adding...' : 'Add Admin'}
               </button>
@@ -1312,17 +1312,17 @@ function UserManagementContent() {
 
       {/* Add Student Modal */}
       {showStudentModal && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-hidden">
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-3 sm:p-4">
+          <div className="bg-white rounded-xl sm:rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-hidden">
             {/* Modal Header */}
-            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+            <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200 flex items-center justify-between">
               <div>
-                <h3 className="text-lg font-semibold text-gray-900">Add Student</h3>
-                <p className="text-sm text-gray-500">Add a single student or import from CSV</p>
+                <h3 className="text-base sm:text-lg font-semibold text-gray-900">Add Student</h3>
+                <p className="text-xs sm:text-sm text-gray-500">Add a single student or import CSV</p>
               </div>
               <button
                 onClick={() => setShowStudentModal(false)}
-                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                className="p-1.5 sm:p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1331,24 +1331,24 @@ function UserManagementContent() {
             </div>
 
             {/* Modal Body */}
-            <div className="px-6 py-5 overflow-y-auto max-h-[calc(90vh-160px)]">
+            <div className="px-4 sm:px-6 py-4 sm:py-5 overflow-y-auto max-h-[calc(90vh-140px)] sm:max-h-[calc(90vh-160px)]">
               {/* Import CSV Option */}
-              <div className="mb-5 p-4 border border-dashed border-gray-300 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-white rounded-lg border border-gray-200">
-                      <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="mb-4 sm:mb-5 p-3 sm:p-4 border border-dashed border-gray-300 rounded-lg sm:rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <div className="p-1.5 sm:p-2 bg-white rounded-lg border border-gray-200">
+                      <svg className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                       </svg>
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-gray-900">Import from CSV</p>
-                      <p className="text-xs text-gray-500">Bulk add multiple students</p>
+                      <p className="text-xs sm:text-sm font-medium text-gray-900">Import from CSV</p>
+                      <p className="text-xs text-gray-500">Bulk add students</p>
                     </div>
                   </div>
                   <label
                     htmlFor="csv-upload-modal"
-                    className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
+                    className="px-3 py-1.5 text-xs sm:text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors w-full sm:w-auto text-center"
                   >
                     Choose File
                   </label>
@@ -1366,7 +1366,7 @@ function UserManagementContent() {
                 </div>
               </div>
 
-              <div className="relative mb-5">
+              <div className="relative mb-4 sm:mb-5">
                 <div className="absolute inset-0 flex items-center">
                   <div className="w-full border-t border-gray-200"></div>
                 </div>
@@ -1376,19 +1376,19 @@ function UserManagementContent() {
               </div>
 
               {/* Manual Form */}
-              <div className="space-y-4">
+              <div className="space-y-3 sm:space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Name</label>
                   <input
                     type="text"
                     value={newStudent.name}
                     onChange={e => setNewStudent({ ...newStudent, name: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-1 focus:ring-gray-300 focus:border-gray-300 outline-none"
+                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-1 focus:ring-gray-300 focus:border-gray-300 outline-none"
                     placeholder="Enter student name"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Email</label>
                   <div className="relative">
                     <input
                       type="email"
@@ -1397,49 +1397,49 @@ function UserManagementContent() {
                         setNewStudent({ ...newStudent, email: e.target.value });
                         if (studentEmailError) setStudentEmailError('');
                       }}
-                      className={`w-full px-3 py-2 border rounded-lg focus:ring-1 focus:ring-gray-300 outline-none ${
+                      className={`w-full px-3 py-2 text-sm border rounded-lg focus:ring-1 focus:ring-gray-300 outline-none ${
                         studentEmailError ? 'border-red-300 bg-red-50' : 'border-gray-200'
                       }`}
                       placeholder="name@somaiya.edu"
                     />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">@somaiya.edu</span>
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400 hidden sm:block">@somaiya.edu</span>
                   </div>
                   {studentEmailError && (
                     <p className="text-xs text-red-500 mt-1">{studentEmailError}</p>
                   )}
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-2 sm:gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Semester</label>
+                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Semester</label>
                     <select
                       value={newStudent.semester}
                       onChange={e => setNewStudent({ ...newStudent, semester: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-1 focus:ring-gray-300 outline-none"
+                      className="w-full px-2 sm:px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-1 focus:ring-gray-300 outline-none"
                     >
                       {[1,2,3,4,5,6,7,8].map(s => (
-                        <option key={s} value={s}>Semester {s}</option>
+                        <option key={s} value={s}>Sem {s}</option>
                       ))}
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Course</label>
+                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Course</label>
                     <select
                       value={newStudent.course}
                       onChange={e => setNewStudent({ ...newStudent, course: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-1 focus:ring-gray-300 outline-none"
+                      className="w-full px-2 sm:px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-1 focus:ring-gray-300 outline-none"
                     >
-                      <option value="IT">Information Technology</option>
-                      <option value="AIDS">AI & Data Science</option>
+                      <option value="IT">IT</option>
+                      <option value="AIDS">AI&DS</option>
                     </select>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-2 sm:gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Division</label>
+                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Division</label>
                     <select
                       value={newStudent.division}
                       onChange={e => setNewStudent({ ...newStudent, division: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-1 focus:ring-gray-300 outline-none"
+                      className="w-full px-2 sm:px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-1 focus:ring-gray-300 outline-none"
                     >
                       {['A', 'B', 'C', 'D'].map(d => (
                         <option key={d} value={d}>{d}</option>
@@ -1447,11 +1447,11 @@ function UserManagementContent() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Batch</label>
+                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Batch</label>
                     <select
                       value={newStudent.batch}
                       onChange={e => setNewStudent({ ...newStudent, batch: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-1 focus:ring-gray-300 outline-none"
+                      className="w-full px-2 sm:px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-1 focus:ring-gray-300 outline-none"
                     >
                       {['A1', 'A2', 'A3', 'B1', 'B2', 'B3', 'C1', 'C2', 'C3', 'D1', 'D2', 'D3'].map(b => (
                         <option key={b} value={b}>{b}</option>
@@ -1463,20 +1463,20 @@ function UserManagementContent() {
             </div>
 
             {/* Modal Footer */}
-            <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-3 bg-gray-50">
+            <div className="px-4 sm:px-6 py-3 sm:py-4 border-t border-gray-200 flex justify-end gap-2 sm:gap-3 bg-gray-50">
               <button
                 onClick={() => setShowStudentModal(false)}
-                className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200 rounded-lg transition-colors"
+                className="px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-gray-700 hover:bg-gray-200 rounded-lg transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleAddStudent}
                 disabled={isAddingStudent}
-                className="px-4 py-2 text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                className="px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
                 {isAddingStudent && (
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <div className="w-3.5 h-3.5 sm:w-4 sm:h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                 )}
                 {isAddingStudent ? 'Adding...' : 'Add Student'}
               </button>
@@ -1487,17 +1487,17 @@ function UserManagementContent() {
 
       {/* Add Faculty Modal */}
       {showFacultyModal && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-hidden">
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-3 sm:p-4">
+          <div className="bg-white rounded-xl sm:rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-hidden">
             {/* Modal Header */}
-            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+            <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200 flex items-center justify-between">
               <div>
-                <h3 className="text-lg font-semibold text-gray-900">Add Faculty</h3>
-                <p className="text-sm text-gray-500">Add a single faculty or import from CSV</p>
+                <h3 className="text-base sm:text-lg font-semibold text-gray-900">Add Faculty</h3>
+                <p className="text-xs sm:text-sm text-gray-500">Add a single faculty or import CSV</p>
               </div>
               <button
                 onClick={() => setShowFacultyModal(false)}
-                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                className="p-1.5 sm:p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1506,24 +1506,24 @@ function UserManagementContent() {
             </div>
 
             {/* Modal Body */}
-            <div className="px-6 py-5 overflow-y-auto max-h-[calc(90vh-160px)]">
+            <div className="px-4 sm:px-6 py-4 sm:py-5 overflow-y-auto max-h-[calc(90vh-140px)] sm:max-h-[calc(90vh-160px)]">
               {/* Import CSV Option */}
-              <div className="mb-5 p-4 border border-dashed border-gray-300 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-white rounded-lg border border-gray-200">
-                      <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="mb-4 sm:mb-5 p-3 sm:p-4 border border-dashed border-gray-300 rounded-lg sm:rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <div className="p-1.5 sm:p-2 bg-white rounded-lg border border-gray-200">
+                      <svg className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                       </svg>
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-gray-900">Import from CSV</p>
-                      <p className="text-xs text-gray-500">Bulk add multiple faculty</p>
+                      <p className="text-xs sm:text-sm font-medium text-gray-900">Import from CSV</p>
+                      <p className="text-xs text-gray-500">Bulk add faculty</p>
                     </div>
                   </div>
                   <label
                     htmlFor="faculty-csv-upload-modal"
-                    className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
+                    className="px-3 py-1.5 text-xs sm:text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors w-full sm:w-auto text-center"
                   >
                     Choose File
                   </label>
@@ -1541,7 +1541,7 @@ function UserManagementContent() {
                 </div>
               </div>
 
-              <div className="relative mb-5">
+              <div className="relative mb-4 sm:mb-5">
                 <div className="absolute inset-0 flex items-center">
                   <div className="w-full border-t border-gray-200"></div>
                 </div>
@@ -1551,19 +1551,19 @@ function UserManagementContent() {
               </div>
 
               {/* Manual Form */}
-              <div className="space-y-4">
+              <div className="space-y-3 sm:space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Name</label>
                   <input
                     type="text"
                     value={newFaculty.name}
                     onChange={e => setNewFaculty({ ...newFaculty, name: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-1 focus:ring-gray-300 focus:border-gray-300 outline-none"
+                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-1 focus:ring-gray-300 focus:border-gray-300 outline-none"
                     placeholder="Enter faculty name"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Email</label>
                   <div className="relative">
                     <input
                       type="email"
@@ -1572,24 +1572,24 @@ function UserManagementContent() {
                         setNewFaculty({ ...newFaculty, email: e.target.value });
                         if (facultyEmailError) setFacultyEmailError('');
                       }}
-                      className={`w-full px-3 py-2 border rounded-lg focus:ring-1 focus:ring-gray-300 outline-none ${
+                      className={`w-full px-3 py-2 text-sm border rounded-lg focus:ring-1 focus:ring-gray-300 outline-none ${
                         facultyEmailError ? 'border-red-300 bg-red-50' : 'border-gray-200'
                       }`}
                       placeholder="name@somaiya.edu"
                     />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">@somaiya.edu</span>
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400 hidden sm:block">@somaiya.edu</span>
                   </div>
                   {facultyEmailError && (
                     <p className="text-xs text-red-500 mt-1">{facultyEmailError}</p>
                   )}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Faculty Code</label>
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Faculty Code</label>
                   <input
                     type="text"
                     value={newFaculty.facultyCode}
                     onChange={e => setNewFaculty({ ...newFaculty, facultyCode: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-1 focus:ring-gray-300 focus:border-gray-300 outline-none"
+                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-1 focus:ring-gray-300 focus:border-gray-300 outline-none"
                     placeholder="e.g. PPM"
                   />
                 </div>
@@ -1597,20 +1597,20 @@ function UserManagementContent() {
             </div>
 
             {/* Modal Footer */}
-            <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-3 bg-gray-50">
+            <div className="px-4 sm:px-6 py-3 sm:py-4 border-t border-gray-200 flex justify-end gap-2 sm:gap-3 bg-gray-50">
               <button
                 onClick={() => setShowFacultyModal(false)}
-                className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200 rounded-lg transition-colors"
+                className="px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-gray-700 hover:bg-gray-200 rounded-lg transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleAddFaculty}
                 disabled={isAddingFaculty}
-                className="px-4 py-2 text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                className="px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
                 {isAddingFaculty && (
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <div className="w-3.5 h-3.5 sm:w-4 sm:h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                 )}
                 {isAddingFaculty ? 'Adding...' : 'Add Faculty'}
               </button>
@@ -1621,17 +1621,17 @@ function UserManagementContent() {
 
       {/* Edit Student Modal */}
       {showEditStudentModal && editingStudent && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-hidden">
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-3 sm:p-4">
+          <div className="bg-white rounded-xl sm:rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-hidden">
             {/* Modal Header */}
-            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+            <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200 flex items-center justify-between">
               <div>
-                <h3 className="text-lg font-semibold text-gray-900">Edit Student</h3>
-                <p className="text-sm text-gray-500">Update student details</p>
+                <h3 className="text-base sm:text-lg font-semibold text-gray-900">Edit Student</h3>
+                <p className="text-xs sm:text-sm text-gray-500">Update student details</p>
               </div>
               <button
                 onClick={() => { setShowEditStudentModal(false); setEditingStudent(null); }}
-                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                className="p-1.5 sm:p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1640,58 +1640,58 @@ function UserManagementContent() {
             </div>
 
             {/* Modal Body */}
-            <div className="px-6 py-5 overflow-y-auto max-h-[calc(90vh-160px)]">
-              <div className="space-y-4">
+            <div className="px-4 sm:px-6 py-4 sm:py-5 overflow-y-auto max-h-[calc(90vh-140px)] sm:max-h-[calc(90vh-160px)]">
+              <div className="space-y-3 sm:space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Name</label>
                   <input
                     type="text"
                     value={editingStudent.name}
                     disabled
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-500"
+                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 text-gray-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Email</label>
                   <input
                     type="email"
                     value={editingStudent.email}
                     disabled
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-500"
+                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 text-gray-500 truncate"
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-2 sm:gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Semester</label>
+                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Semester</label>
                     <select
                       value={editingStudent.semester}
                       onChange={e => setEditingStudent({ ...editingStudent, semester: parseInt(e.target.value) })}
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-1 focus:ring-gray-300 outline-none"
+                      className="w-full px-2 sm:px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-1 focus:ring-gray-300 outline-none"
                     >
                       {[1,2,3,4,5,6,7,8].map(s => (
-                        <option key={s} value={s}>Semester {s}</option>
+                        <option key={s} value={s}>Sem {s}</option>
                       ))}
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Course</label>
+                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Course</label>
                     <select
                       value={editingStudent.course}
                       onChange={e => setEditingStudent({ ...editingStudent, course: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-1 focus:ring-gray-300 outline-none"
+                      className="w-full px-2 sm:px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-1 focus:ring-gray-300 outline-none"
                     >
-                      <option value="IT">Information Technology</option>
-                      <option value="AIDS">AI & Data Science</option>
+                      <option value="IT">IT</option>
+                      <option value="AIDS">AI&DS</option>
                     </select>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-2 sm:gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Division</label>
+                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Division</label>
                     <select
                       value={editingStudent.division}
                       onChange={e => setEditingStudent({ ...editingStudent, division: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-1 focus:ring-gray-300 outline-none"
+                      className="w-full px-2 sm:px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-1 focus:ring-gray-300 outline-none"
                     >
                       {['A', 'B', 'C', 'D'].map(d => (
                         <option key={d} value={d}>{d}</option>
@@ -1699,11 +1699,11 @@ function UserManagementContent() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Batch</label>
+                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Batch</label>
                     <select
                       value={editingStudent.batch}
                       onChange={e => setEditingStudent({ ...editingStudent, batch: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-1 focus:ring-gray-300 outline-none"
+                      className="w-full px-2 sm:px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-1 focus:ring-gray-300 outline-none"
                     >
                       {['A1', 'A2', 'A3', 'B1', 'B2', 'B3', 'C1', 'C2', 'C3', 'D1', 'D2', 'D3'].map(b => (
                         <option key={b} value={b}>{b}</option>
@@ -1715,16 +1715,16 @@ function UserManagementContent() {
             </div>
 
             {/* Modal Footer */}
-            <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-3 bg-gray-50">
+            <div className="px-4 sm:px-6 py-3 sm:py-4 border-t border-gray-200 flex justify-end gap-2 sm:gap-3 bg-gray-50">
               <button
                 onClick={() => { setShowEditStudentModal(false); setEditingStudent(null); }}
-                className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200 rounded-lg transition-colors"
+                className="px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-gray-700 hover:bg-gray-200 rounded-lg transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleUpdateStudent}
-                className="px-4 py-2 text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-lg transition-colors"
+                className="px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-lg transition-colors"
               >
                 Save Changes
               </button>
@@ -1735,17 +1735,17 @@ function UserManagementContent() {
 
       {/* CSV Preview Modal - Students */}
       {showCSVPreviewModal && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-3 sm:p-4">
+          <div className="bg-white rounded-xl sm:rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
             {/* Modal Header */}
-            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+            <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200 flex items-center justify-between">
               <div>
-                <h3 className="text-lg font-semibold text-gray-900">Import Students</h3>
-                <p className="text-sm text-gray-500">{csvStudents.length} students found in CSV</p>
+                <h3 className="text-base sm:text-lg font-semibold text-gray-900">Import Students</h3>
+                <p className="text-xs sm:text-sm text-gray-500">{csvStudents.length} students found</p>
               </div>
               <button
                 onClick={() => { setShowCSVPreviewModal(false); setCsvStudents([]); }}
-                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                className="p-1.5 sm:p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1754,9 +1754,9 @@ function UserManagementContent() {
             </div>
 
             {/* Modal Body */}
-            <div className="px-6 py-5 overflow-y-auto max-h-[calc(90vh-180px)]">
-              <div className="border border-gray-100 rounded-lg overflow-hidden">
-                <table className="w-full text-sm">
+            <div className="px-3 sm:px-6 py-4 sm:py-5 overflow-y-auto max-h-[calc(90vh-160px)] sm:max-h-[calc(90vh-180px)]">
+              <div className="border border-gray-100 rounded-lg overflow-x-auto">
+                <table className="w-full text-xs sm:text-sm min-w-[400px]">
                   <thead className="bg-gray-50">
                     <tr>
                       <th className="py-3 px-3 w-10"></th>
@@ -1799,25 +1799,25 @@ function UserManagementContent() {
             </div>
 
             {/* Modal Footer */}
-            <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between bg-gray-50">
-              <span className="text-sm text-gray-500">
+            <div className="px-3 sm:px-6 py-3 sm:py-4 border-t border-gray-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-gray-50">
+              <span className="text-xs sm:text-sm text-gray-500">
                 {csvStudents.filter(s => s.selected).length} of {csvStudents.length} selected
                 {csvStudents.filter(s => s.selected && s.exists).length > 0 && 
-                  ` (${csvStudents.filter(s => s.selected && s.exists).length} will be updated)`}
+                  ` (${csvStudents.filter(s => s.selected && s.exists).length} updating)`}
               </span>
-              <div className="flex gap-3">
+              <div className="flex gap-2 sm:gap-3 w-full sm:w-auto">
                 <button
                   onClick={() => { setShowCSVPreviewModal(false); setCsvStudents([]); }}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200 rounded-lg transition-colors"
+                  className="flex-1 sm:flex-none px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-gray-700 hover:bg-gray-200 rounded-lg transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleConfirmCSVImport}
                   disabled={isUploading || csvStudents.filter(s => s.selected).length === 0}
-                  className="px-4 py-2 text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 sm:flex-none px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {isUploading ? 'Processing...' : 'Import Students'}
+                  {isUploading ? 'Processing...' : 'Import'}
                 </button>
               </div>
             </div>
@@ -1827,17 +1827,17 @@ function UserManagementContent() {
 
       {/* CSV Preview Modal - Faculty */}
       {showFacultyCSVPreviewModal && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-3 sm:p-4">
+          <div className="bg-white rounded-xl sm:rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
             {/* Modal Header */}
-            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+            <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200 flex items-center justify-between">
               <div>
-                <h3 className="text-lg font-semibold text-gray-900">Import Faculty</h3>
-                <p className="text-sm text-gray-500">{csvFaculty.length} faculty found in CSV</p>
+                <h3 className="text-base sm:text-lg font-semibold text-gray-900">Import Faculty</h3>
+                <p className="text-xs sm:text-sm text-gray-500">{csvFaculty.length} faculty found</p>
               </div>
               <button
                 onClick={() => { setShowFacultyCSVPreviewModal(false); setCsvFaculty([]); }}
-                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                className="p-1.5 sm:p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1846,9 +1846,9 @@ function UserManagementContent() {
             </div>
 
             {/* Modal Body */}
-            <div className="px-6 py-5 overflow-y-auto max-h-[calc(90vh-180px)]">
-              <div className="border border-gray-100 rounded-lg overflow-hidden">
-                <table className="w-full text-sm">
+            <div className="px-3 sm:px-6 py-4 sm:py-5 overflow-y-auto max-h-[calc(90vh-160px)] sm:max-h-[calc(90vh-180px)]">
+              <div className="border border-gray-100 rounded-lg overflow-x-auto">
+                <table className="w-full text-xs sm:text-sm min-w-[350px]">
                   <thead className="bg-gray-50">
                     <tr>
                       <th className="py-3 px-3 w-10"></th>
@@ -1887,21 +1887,21 @@ function UserManagementContent() {
             </div>
 
             {/* Modal Footer */}
-            <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between bg-gray-50">
-              <span className="text-sm text-gray-500">
+            <div className="px-3 sm:px-6 py-3 sm:py-4 border-t border-gray-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-gray-50">
+              <span className="text-xs sm:text-sm text-gray-500">
                 {csvFaculty.filter(f => f.selected && !f.exists).length} of {csvFaculty.filter(f => !f.exists).length} selected
               </span>
-              <div className="flex gap-3">
+              <div className="flex gap-2 sm:gap-3 w-full sm:w-auto">
                 <button
                   onClick={() => { setShowFacultyCSVPreviewModal(false); setCsvFaculty([]); }}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200 rounded-lg transition-colors"
+                  className="flex-1 sm:flex-none px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-gray-700 hover:bg-gray-200 rounded-lg transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleConfirmFacultyCSVImport}
                   disabled={isUploading || csvFaculty.filter(f => f.selected && !f.exists).length === 0}
-                  className="px-4 py-2 text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 sm:flex-none px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isUploading ? 'Adding...' : 'Add Faculty'}
                 </button>
