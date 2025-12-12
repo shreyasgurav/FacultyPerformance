@@ -109,10 +109,17 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      // Update user record name if it exists
-      await prisma.users.updateMany({
-        where: { student_id: existingStudent.id },
-        data: { name },
+      // Ensure user record exists (upsert) - fixes login issues after re-adding student
+      await prisma.users.upsert({
+        where: { email },
+        update: { name },
+        create: {
+          id: `user_${Date.now()}`,
+          name,
+          email,
+          role: 'student',
+          student_id: existingStudent.id,
+        },
       });
 
       // Return updated student

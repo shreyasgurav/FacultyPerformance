@@ -89,37 +89,44 @@ export async function POST(request: NextRequest) {
               batch: batch || null,
             },
           }).then(() => {
-            // Also update user name
-            return prisma.users.updateMany({
-              where: { student_id: existingId },
-              data: { name },
+            // Ensure user record exists (upsert) - fixes login issues after re-adding student
+            return prisma.users.upsert({
+              where: { email: normalizedEmail },
+              update: { name },
+              create: {
+                id: `user_${now}_upd_${i}`,
+                name,
+                email: normalizedEmail,
+                role: 'student',
+                student_id: existingId,
+              },
             });
           })
         );
         updated++;
       } else {
         // New student
-        const studentId = `stu_${now}_${i}`;
-        const userId = `user_${now}_${i}`;
+      const studentId = `stu_${now}_${i}`;
+      const userId = `user_${now}_${i}`;
 
         newStudentRecords.push({
-          id: studentId,
-          name,
-          email: normalizedEmail,
-          department_id: 'dept1',
-          semester: semesterNum,
-          course: course || 'IT',
-          division,
-          batch: batch || null,
-        });
+        id: studentId,
+        name,
+        email: normalizedEmail,
+        department_id: 'dept1',
+        semester: semesterNum,
+        course: course || 'IT',
+        division,
+        batch: batch || null,
+      });
 
         newUserRecords.push({
-          id: userId,
-          name,
-          email: normalizedEmail,
-          role: 'student',
-          student_id: studentId,
-        });
+        id: userId,
+        name,
+        email: normalizedEmail,
+        role: 'student',
+        student_id: studentId,
+      });
 
         // Mark as existing for rest of batch
         existingByEmail.set(normalizedEmail, studentId);
@@ -134,15 +141,15 @@ export async function POST(request: NextRequest) {
 
     // Bulk create new students
     if (newStudentRecords.length > 0) {
-      await prisma.students.createMany({
+    await prisma.students.createMany({
         data: newStudentRecords,
-        skipDuplicates: true,
-      });
+      skipDuplicates: true,
+    });
 
-      await prisma.users.createMany({
+    await prisma.users.createMany({
         data: newUserRecords,
-        skipDuplicates: true,
-      });
+      skipDuplicates: true,
+    });
     }
 
     return NextResponse.json({
