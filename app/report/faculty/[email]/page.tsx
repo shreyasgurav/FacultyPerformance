@@ -187,34 +187,18 @@ function FacultyReportContent() {
 
   if (isLoading) {
     return (
-      <div className="max-w-5xl mx-auto px-4 py-6">
+      <div className="max-w-5xl mx-auto px-3 sm:px-4 py-4 sm:py-6">
         <div className="animate-pulse">
-          {/* Back button skeleton */}
           <div className="w-8 h-8 bg-gray-200 rounded-lg mb-4"></div>
-          {/* Header skeleton */}
           <div className="mb-6">
-            <div className="h-7 bg-gray-200 rounded w-48 mb-2"></div>
-            <div className="h-4 bg-gray-100 rounded w-64"></div>
+            <div className="h-6 sm:h-7 bg-gray-200 rounded w-40 sm:w-48 mb-2"></div>
+            <div className="h-4 bg-gray-100 rounded w-48 sm:w-64"></div>
           </div>
-          {/* Stats skeleton */}
-          <div className="grid grid-cols-3 gap-4 mb-6">
-            {[...Array(3)].map((_, i) => (
-              <div key={i} className="bg-white rounded-xl border border-gray-100 p-4">
-                <div className="h-4 bg-gray-100 rounded w-24 mb-2"></div>
-                <div className="h-8 bg-gray-200 rounded w-20"></div>
-              </div>
-            ))}
-          </div>
-          {/* Forms skeleton */}
-          <div className="bg-white rounded-2xl border border-gray-100 p-6">
-            <div className="h-5 bg-gray-200 rounded w-32 mb-4"></div>
+          <div className="bg-white rounded-xl sm:rounded-2xl border border-gray-100 p-4 sm:p-6">
+            <div className="h-5 bg-gray-200 rounded w-24 sm:w-32 mb-4"></div>
             <div className="space-y-3">
               {[...Array(4)].map((_, i) => (
-                <div key={i} className="flex gap-4 items-center py-3 border-b border-gray-50">
-                  <div className="h-10 bg-gray-100 rounded flex-1"></div>
-                  <div className="h-10 bg-gray-100 rounded w-24"></div>
-                  <div className="h-10 bg-gray-100 rounded w-20"></div>
-                </div>
+                <div key={i} className="h-20 sm:h-16 bg-gray-100 rounded-lg"></div>
               ))}
             </div>
           </div>
@@ -225,24 +209,24 @@ function FacultyReportContent() {
 
   if (facultyForms.length === 0) {
     return (
-      <div className="max-w-4xl mx-auto px-4 py-6">
+      <div className="max-w-4xl mx-auto px-3 sm:px-4 py-4 sm:py-6">
         <Link
           href="/admin/reports"
           className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors mb-4"
         >
           <ArrowLeftIcon className="w-5 h-5" />
         </Link>
-        <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center">
-          <p className="text-gray-400">No feedback forms found for this faculty.</p>
+        <div className="bg-white rounded-xl sm:rounded-2xl border border-gray-100 p-8 sm:p-12 text-center">
+          <p className="text-gray-400 text-sm sm:text-base">No feedback forms found for this faculty.</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-6">
+    <div className="max-w-5xl mx-auto px-3 sm:px-4 py-4 sm:py-6">
       {/* Header */}
-      <div className="mb-6">
+      <div className="mb-4 sm:mb-6">
         <Link
           href="/admin/reports"
           className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors mb-3"
@@ -250,30 +234,30 @@ function FacultyReportContent() {
           <ArrowLeftIcon className="w-5 h-5" />
         </Link>
         
-        {/* Faculty name with overall rating on right */}
-        <div className="flex items-start justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">{facultyName}</h1>
-            <p className="text-sm text-gray-500 mt-0.5">{facultyEmail}</p>
+        {/* Faculty name with overall rating */}
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 truncate">{facultyName}</h1>
+            <p className="text-xs sm:text-sm text-gray-500 mt-0.5 truncate">{facultyEmail}</p>
           </div>
           {overallStats.avgRating > 0 && (
-            <div className="text-right">
-              <p className={`text-3xl font-bold ${
+            <div className="text-right flex-shrink-0">
+              <p className={`text-2xl sm:text-3xl font-bold ${
                 overallStats.avgRating >= 7 ? 'text-green-600' :
                 overallStats.avgRating >= 5 ? 'text-yellow-600' : 'text-red-600'
               }`}>
                 {overallStats.avgRating.toFixed(1)}
-                <span className="text-lg text-gray-400 font-normal">/10</span>
+                <span className="text-sm sm:text-lg text-gray-400 font-normal">/10</span>
               </p>
             </div>
           )}
         </div>
       </div>
 
-      {/* Subjects List - Original Design */}
-      <div className="bg-white rounded-2xl border border-gray-100 p-6">
-        <h2 className="text-base font-semibold text-gray-900 mb-4">Subjects</h2>
-        <div className="space-y-3">
+      {/* Subjects List */}
+      <div className="bg-white rounded-xl sm:rounded-2xl border border-gray-100 p-4 sm:p-6">
+        <h2 className="text-sm sm:text-base font-semibold text-gray-900 mb-3 sm:mb-4">Subjects</h2>
+        <div className="space-y-2 sm:space-y-3">
           {facultyForms.map(form => {
             const stats = getFormStats(form.id);
             
@@ -281,9 +265,43 @@ function FacultyReportContent() {
               <Link
                 key={form.id}
                 href={`/report/${form.id}`}
-                className="block p-4 rounded-xl border border-gray-100 hover:border-gray-200 hover:bg-gray-50/50 transition-all group"
+                className="block p-3 sm:p-4 rounded-lg sm:rounded-xl border border-gray-100 hover:border-gray-200 hover:bg-gray-50/50 transition-all group"
               >
-                <div className="flex items-center justify-between gap-4">
+                {/* Mobile layout */}
+                <div className="sm:hidden">
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <p className="font-medium text-gray-900 text-sm leading-tight">
+                      {form.subject_name}
+                    </p>
+                    <div className="text-gray-300 group-hover:text-gray-400 transition-colors flex-shrink-0">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-500 mb-2">
+                    {form.academic_year} · Sem {form.semester} · {form.course === 'AIDS' ? 'AI & DS' : 'IT'} · {form.division}{form.batch ? ` / ${form.batch}` : ''}
+                  </p>
+                  <div className="flex items-center gap-4">
+                    <div>
+                      <span className="text-xs text-gray-400">Responses: </span>
+                      <span className="text-xs font-semibold text-gray-900">{stats.responseCount}</span>
+                    </div>
+                    <div>
+                      <span className="text-xs text-gray-400">Rating: </span>
+                      <span className={`text-xs font-bold ${
+                        stats.avgRating >= 7 ? 'text-green-600' :
+                        stats.avgRating >= 5 ? 'text-yellow-600' : 
+                        stats.avgRating > 0 ? 'text-red-600' : 'text-gray-400'
+                      }`}>
+                        {stats.avgRating > 0 ? stats.avgRating.toFixed(1) : '-'}/10
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Desktop layout */}
+                <div className="hidden sm:flex items-center justify-between gap-4">
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-gray-900 group-hover:text-gray-700 truncate">
                       {form.subject_name}

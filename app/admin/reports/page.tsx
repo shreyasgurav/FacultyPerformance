@@ -234,7 +234,52 @@ function ReportsContent() {
           <p className="text-gray-400 text-center text-sm py-8">No faculty match your search.</p>
         ) : (
           <>
-            <div className="overflow-x-auto -mx-6">
+            {/* Mobile Cards */}
+            <div className="md:hidden space-y-2">
+              {displayedFacultyList.map((fac) => {
+                const stats = getFacultyStats(fac.email);
+                const originalRank = facultyList.findIndex(f => f.email === fac.email) + 1;
+                
+                return (
+                  <Link
+                    key={fac.email}
+                    href={`/report/faculty/${encodeURIComponent(fac.email)}`}
+                    className="block p-3 rounded-lg border border-gray-100 hover:border-gray-200 hover:bg-gray-50/50 transition-all"
+                  >
+                    <div className="flex items-start gap-3">
+                      <span className={`flex-shrink-0 inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-semibold ${
+                        originalRank === 1 ? 'bg-yellow-100 text-yellow-700' :
+                        originalRank === 2 ? 'bg-gray-200 text-gray-700' :
+                        originalRank === 3 ? 'bg-orange-100 text-orange-700' :
+                        'bg-gray-100 text-gray-500'
+                      }`}>
+                        {originalRank}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="text-sm font-medium text-gray-900 truncate">{fac.name}</p>
+                          <span className={`flex-shrink-0 text-sm font-bold ${
+                            stats.avgRating >= 7 ? 'text-green-600' :
+                            stats.avgRating >= 5 ? 'text-yellow-600' : 
+                            stats.avgRating > 0 ? 'text-red-600' : 'text-gray-400'
+                          }`}>
+                            {stats.avgRating > 0 ? stats.avgRating.toFixed(1) : '-'}/10
+                          </span>
+                        </div>
+                        <p className="text-xs text-gray-500 truncate mt-0.5">{fac.email}</p>
+                        <p className="text-xs text-gray-400 mt-1">{stats.formCount} subject{stats.formCount !== 1 ? 's' : ''}</p>
+                      </div>
+                      <svg className="w-4 h-4 text-gray-300 flex-shrink-0 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+
+            {/* Desktop Table */}
+            <div className="hidden md:block overflow-x-auto -mx-6">
               <table className="w-full min-w-[600px]">
                 <thead>
                   <tr className="border-b border-gray-100">
@@ -247,10 +292,8 @@ function ReportsContent() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {displayedFacultyList.map((fac, index) => {
+                  {displayedFacultyList.map((fac) => {
                     const stats = getFacultyStats(fac.email);
-                    
-                    // Get original rank (position in sorted list)
                     const originalRank = facultyList.findIndex(f => f.email === fac.email) + 1;
                     
                     return (
@@ -302,7 +345,7 @@ function ReportsContent() {
               <div className="text-center py-4">
                 <button
                   onClick={loadMore}
-                  className="px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                  className="px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
                 >
                   Load More ({filteredFacultyList.length - displayCount} remaining)
                 </button>
