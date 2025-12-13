@@ -981,7 +981,42 @@ function UserManagementContent() {
             )}
           </div>
 
-          <div className="overflow-x-auto -mx-6">
+          {/* Mobile Cards */}
+          <div className="md:hidden space-y-2">
+            {displayedStudents.map(student => (
+              <div key={student.id} className="p-3 rounded-lg border border-gray-100 bg-gray-50/30">
+                <div className="flex items-start justify-between gap-2 mb-1">
+                  <p className="text-sm font-medium text-gray-900">{student.name}</p>
+                  <span className="flex-shrink-0 text-xs text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">
+                    {student.course === 'AIDS' ? 'AI&DS' : 'IT'}
+                  </span>
+                </div>
+                <p className="text-xs text-gray-500 mb-2 truncate">{student.email}</p>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-gray-600">
+                    Sem {student.semester} · Div {student.division}{student.batch ? ` · ${student.batch}` : ''}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleEditStudent(student)}
+                      className="text-blue-600 text-xs font-medium"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => openDeleteConfirm('student', student.id, student.name)}
+                      className="text-red-500 text-xs font-medium"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop Table */}
+          <div className="hidden md:block overflow-x-auto -mx-6">
             <table className="w-full min-w-[700px]">
               <thead>
                 <tr className="border-b border-gray-100">
@@ -1094,7 +1129,33 @@ function UserManagementContent() {
             )}
           </div>
 
-          <div className="overflow-x-auto -mx-6">
+          {/* Mobile Cards */}
+          <div className="md:hidden space-y-2">
+            {displayedFaculty.map(fac => (
+              <div key={fac.id} className="p-3 rounded-lg border border-gray-100 bg-gray-50/30">
+                <div className="flex items-start justify-between gap-2 mb-1">
+                  <p className="text-sm font-medium text-gray-900">{fac.name}</p>
+                  {fac.facultyCode && (
+                    <span className="flex-shrink-0 text-xs text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">
+                      {fac.facultyCode}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-gray-500 truncate flex-1">{fac.email}</p>
+                  <button
+                    onClick={() => openDeleteConfirm('faculty', fac.id, fac.name)}
+                    className="text-red-500 text-xs font-medium ml-2 flex-shrink-0"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop Table */}
+          <div className="hidden md:block overflow-x-auto -mx-6">
             <table className="w-full min-w-[500px]">
               <thead>
                 <tr className="border-b border-gray-100">
@@ -1185,7 +1246,31 @@ function UserManagementContent() {
             )}
           </div>
 
-          <div className="overflow-x-auto -mx-6">
+          {/* Mobile Cards */}
+          <div className="md:hidden space-y-2">
+            {displayedAdmins.map(admin => (
+              <div key={admin.id} className="p-3 rounded-lg border border-gray-100 bg-gray-50/30">
+                <div className="flex items-start justify-between gap-2 mb-1">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-gray-900 truncate">{admin.email}</p>
+                    {admin.name && <p className="text-xs text-gray-600">{admin.name}</p>}
+                  </div>
+                  <button
+                    onClick={() => openDeleteConfirm('admin', admin.id, admin.name || admin.email)}
+                    className="text-red-500 text-xs font-medium flex-shrink-0"
+                  >
+                    Remove
+                  </button>
+                </div>
+                <p className="text-xs text-gray-400">
+                  Added {admin.createdAt ? new Date(admin.createdAt).toLocaleDateString() : '-'}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop Table */}
+          <div className="hidden md:block overflow-x-auto -mx-6">
             <table className="w-full min-w-[500px]">
               <thead>
                 <tr className="border-b border-gray-100">

@@ -295,53 +295,44 @@ function FeedbackMonitoringContent() {
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-xl sm:rounded-2xl border border-gray-100 p-4 sm:p-5 mb-4 sm:mb-6">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1.5">Semester</label>
+      <div className="bg-white rounded-xl sm:rounded-2xl border border-gray-100 p-3 sm:p-5 mb-4 sm:mb-6">
+        <div className="flex gap-2 sm:grid sm:grid-cols-3 sm:gap-4">
             <select
               value={semesterFilter}
               onChange={e => setSemesterFilter(e.target.value)}
-              className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors"
+            className="flex-1 sm:flex-none px-2 sm:px-3 py-1.5 sm:py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors"
             >
-              <option value="">All Semesters</option>
+            <option value="">Semester</option>
               {semesters.map(s => (
-                <option key={s.value} value={s.value}>{s.label}</option>
+              <option key={s.value} value={s.value}>Sem {s.value}</option>
               ))}
             </select>
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1.5">Course</label>
             <select
               value={courseFilter}
               onChange={e => setCourseFilter(e.target.value)}
-              className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors"
+            className="flex-1 sm:flex-none px-2 sm:px-3 py-1.5 sm:py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors"
             >
-              <option value="">All Courses</option>
+            <option value="">Course</option>
               {courses.map(c => (
-                <option key={c.value} value={c.value}>{c.label}</option>
+              <option key={c.value} value={c.value}>{c.value === 'AIDS' ? 'AI&DS' : c.value}</option>
               ))}
             </select>
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1.5">Division</label>
             <select
               value={divisionFilter}
               onChange={e => setDivisionFilter(e.target.value)}
-              className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors"
+            className="flex-1 sm:flex-none px-2 sm:px-3 py-1.5 sm:py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors"
             >
-              <option value="">All Divisions</option>
+            <option value="">Division</option>
               {divisions.map(d => (
-                <option key={d} value={d}>{d}</option>
+              <option key={d} value={d}>Div {d}</option>
               ))}
             </select>
-          </div>
         </div>
       </div>
 
       {/* Forms Table */}
       <div className="bg-white rounded-xl sm:rounded-2xl border border-gray-100 p-4 sm:p-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3 sm:mb-4">
+        <div className="flex items-center justify-between gap-3 mb-3 sm:mb-4">
           <h2 className="text-sm sm:text-base font-semibold text-gray-900">
             Feedback Forms ({filteredForms.length})
           </h2>
@@ -358,7 +349,43 @@ function FeedbackMonitoringContent() {
           <p className="text-gray-400 text-center text-sm py-8">No feedback forms found.</p>
         ) : (
           <>
-            <div className="overflow-x-auto -mx-6">
+            {/* Mobile Cards */}
+            <div className="md:hidden space-y-2">
+              {displayedForms.map(form => {
+                const responseCount = getResponseCount(form.id);
+                const totalStudents = getTotalStudentsForForm(form);
+                
+                return (
+                  <div
+                    key={form.id}
+                    className="p-3 rounded-lg border border-gray-100 bg-gray-50/30"
+                  >
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-gray-900 truncate">{form.subject_name}</p>
+                        {form.subject_code && <p className="text-xs text-gray-400">{form.subject_code}</p>}
+                      </div>
+                      <span className="flex-shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+                        {responseCount} / {totalStudents}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-600 mb-1">{form.faculty_name}</p>
+                    <p className="text-xs text-gray-500 mb-2">
+                      {form.academic_year} · Sem {form.semester} · {form.course === 'AIDS' ? 'AI&DS' : 'IT'} · {form.division}{form.batch ? ` / ${form.batch}` : ''}
+                    </p>
+                    <button
+                      onClick={() => openDeleteConfirm(form)}
+                      className="text-red-500 hover:text-red-700 text-xs font-medium"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Desktop Table */}
+            <div className="hidden md:block overflow-x-auto -mx-6">
               <table className="w-full min-w-[700px]">
                 <thead>
                   <tr className="border-b border-gray-100">
@@ -412,7 +439,7 @@ function FeedbackMonitoringContent() {
               <div className="text-center py-4">
                 <button
                   onClick={loadMore}
-                  className="px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                  className="px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
                 >
                   Load More ({filteredForms.length - displayCount} remaining)
                 </button>

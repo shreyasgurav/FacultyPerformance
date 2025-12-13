@@ -300,38 +300,32 @@ function ReportContent() {
 
   if (isLoading) {
     return (
-      <div className="max-w-4xl mx-auto px-4 py-6">
+      <div className="max-w-4xl mx-auto px-3 sm:px-4 py-4 sm:py-6">
         <div className="animate-pulse">
-          {/* Back button skeleton */}
           <div className="w-8 h-8 bg-gray-200 rounded-lg mb-4"></div>
-          {/* Header skeleton */}
-          <div className="bg-white rounded-2xl border border-gray-100 p-6 mb-6">
-            <div className="h-6 bg-gray-200 rounded w-64 mb-2"></div>
-            <div className="h-4 bg-gray-100 rounded w-40 mb-4"></div>
-            <div className="flex gap-2">
-              <div className="h-6 bg-gray-100 rounded-full w-20"></div>
-              <div className="h-6 bg-gray-100 rounded-full w-24"></div>
-            </div>
+          <div className="mb-4 sm:mb-6">
+            <div className="h-5 sm:h-6 bg-gray-200 rounded w-48 sm:w-64 mb-2"></div>
+            <div className="h-3 sm:h-4 bg-gray-100 rounded w-full sm:w-80 mb-2"></div>
           </div>
-          {/* Stats skeleton */}
-          <div className="grid grid-cols-3 gap-4 mb-6">
-            {[...Array(3)].map((_, i) => (
-              <div key={i} className="bg-white rounded-xl border border-gray-100 p-4">
-                <div className="h-4 bg-gray-100 rounded w-20 mb-2"></div>
-                <div className="h-8 bg-gray-200 rounded w-16"></div>
+          <div className="space-y-4 sm:space-y-0 sm:grid sm:grid-cols-2 sm:gap-6">
+            <div className="bg-white rounded-xl sm:rounded-2xl border border-gray-100 p-4 sm:p-6">
+              <div className="h-5 bg-gray-200 rounded w-32 sm:w-40 mb-4"></div>
+              <div className="space-y-4">
+                {[...Array(4)].map((_, i) => (
+                  <div key={i}>
+                    <div className="h-3 sm:h-4 bg-gray-100 rounded w-full mb-2"></div>
+                    <div className="h-2 bg-gray-100 rounded-full"></div>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-          {/* Questions skeleton */}
-          <div className="bg-white rounded-2xl border border-gray-100 p-6">
-            <div className="h-5 bg-gray-200 rounded w-40 mb-4"></div>
-            <div className="space-y-4">
-              {[...Array(4)].map((_, i) => (
-                <div key={i} className="flex justify-between items-center py-3 border-b border-gray-50">
-                  <div className="h-4 bg-gray-100 rounded flex-1 mr-4"></div>
-                  <div className="h-6 bg-gray-200 rounded w-16"></div>
-                </div>
-              ))}
+            </div>
+            <div className="bg-white rounded-xl sm:rounded-2xl border border-gray-100 p-4 sm:p-6">
+              <div className="h-5 bg-gray-200 rounded w-32 sm:w-40 mb-4"></div>
+              <div className="space-y-3">
+                {[...Array(3)].map((_, i) => (
+                  <div key={i} className="h-16 sm:h-20 bg-gray-100 rounded-lg"></div>
+                ))}
+              </div>
             </div>
           </div>
         </div>
@@ -341,26 +335,26 @@ function ReportContent() {
 
   if (!form || notAuthorized) {
     return (
-      <div className="max-w-4xl mx-auto px-4 py-6">
+      <div className="max-w-4xl mx-auto px-3 sm:px-4 py-4 sm:py-6">
         <Link
           href={userRole?.role === 'admin' ? '/admin/reports' : '/faculty/dashboard'}
           className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors mb-4"
         >
           <ArrowLeftIcon className="w-5 h-5" />
         </Link>
-        <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center">
+        <div className="bg-white rounded-xl sm:rounded-2xl border border-gray-100 p-8 sm:p-12 text-center">
           {notAuthorized ? (
             <>
-              <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4">
+                <svg className="w-5 h-5 sm:w-6 sm:h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                 </svg>
               </div>
-              <p className="text-gray-600 mb-2">Access Denied</p>
-              <p className="text-sm text-gray-400">You can only view reports for your own forms.</p>
+              <p className="text-gray-600 mb-2 text-sm sm:text-base">Access Denied</p>
+              <p className="text-xs sm:text-sm text-gray-400">You can only view reports for your own forms.</p>
             </>
           ) : (
-            <p className="text-gray-400">Form not found.</p>
+            <p className="text-gray-400 text-sm sm:text-base">Form not found.</p>
           )}
         </div>
       </div>
@@ -368,9 +362,9 @@ function ReportContent() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-6">
+    <div className="max-w-5xl mx-auto px-3 sm:px-4 py-4 sm:py-6">
       {/* Header */}
-      <div className="mb-6">
+      <div className="mb-4 sm:mb-6">
         <Link
           href={getBackUrl()}
           className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors mb-3"
@@ -379,29 +373,30 @@ function ReportContent() {
         </Link>
         
         {/* Subject name with overall rating on right */}
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
-            <h1 className="text-2xl font-bold text-gray-900">{form.subject_name}</h1>
+            <h1 className="text-lg sm:text-2xl font-bold text-gray-900">{form.subject_name}</h1>
             {form.subject_code && (
-              <p className="text-sm text-gray-500 mt-0.5">{form.subject_code}</p>
+              <p className="text-xs sm:text-sm text-gray-500 mt-0.5">{form.subject_code}</p>
             )}
-            <p className="text-sm text-gray-500 mt-1">
-              {form.academic_year} · {form.faculty_name} · Sem {form.semester} · {form.course === 'AIDS' ? 'AI & DS' : 'IT'} · Div {form.division}{form.batch ? ` / Batch ${form.batch}` : ''}
+            <p className="text-xs sm:text-sm text-gray-500 mt-1">
+              <span className="hidden sm:inline">{form.academic_year} · {form.faculty_name} · Sem {form.semester} · {form.course === 'AIDS' ? 'AI & DS' : 'IT'} · Div {form.division}{form.batch ? ` / Batch ${form.batch}` : ''}</span>
+              <span className="sm:hidden">{form.faculty_name} · Sem {form.semester} · {form.division}{form.batch ? `/${form.batch}` : ''}</span>
             </p>
             {stats && userRole?.role === 'admin' && form && (
-              <p className="text-xs text-gray-400 mt-2">
+              <p className="text-xs text-gray-400 mt-1 sm:mt-2">
                 {stats.responseCount} / {getTotalStudentsForForm(form)} response{stats.responseCount !== 1 ? 's' : ''}
               </p>
             )}
           </div>
           {stats && stats.avgRating > 0 && (
-            <div className="text-right">
-              <p className={`text-3xl font-bold ${
+            <div className="text-right flex-shrink-0">
+              <p className={`text-2xl sm:text-3xl font-bold ${
                 stats.avgRating >= 7 ? 'text-green-600' :
                 stats.avgRating >= 5 ? 'text-yellow-600' : 'text-red-600'
               }`}>
                 {stats.avgRating.toFixed(1)}
-                <span className="text-lg text-gray-400 font-normal">/10</span>
+                <span className="text-sm sm:text-lg text-gray-400 font-normal">/10</span>
               </p>
             </div>
           )}
@@ -409,53 +404,48 @@ function ReportContent() {
       </div>
 
       {stats && stats.responseCount === 0 ? (
-        <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center">
-          <p className="text-gray-400">No responses yet for this form.</p>
+        <div className="bg-white rounded-xl sm:rounded-2xl border border-gray-100 p-8 sm:p-12 text-center">
+          <p className="text-gray-400 text-sm sm:text-base">No responses yet for this form.</p>
         </div>
       ) : stats && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="space-y-4 sm:space-y-0 sm:grid sm:grid-cols-1 lg:grid-cols-2 sm:gap-6">
           {/* Question-wise Ratings */}
-          <div className="bg-white rounded-2xl border border-gray-100 p-6">
-            <h2 className="text-base font-semibold text-gray-900 mb-5">Question-wise Ratings</h2>
-            <div className="space-y-5">
+          <div className="bg-white rounded-xl sm:rounded-2xl border border-gray-100 p-4 sm:p-6">
+            <h2 className="text-sm sm:text-base font-semibold text-gray-900 mb-4 sm:mb-5">Question-wise Ratings</h2>
+            <div className="space-y-4 sm:space-y-5">
               {stats.parameterAverages.map(param => {
-                // Use normalized average (0-10 scale) for progress bar and color
                 const normalizedRating = param.normalizedAvg;
-                const percentage = normalizedRating * 10; // 0-100%
+                const percentage = normalizedRating * 10;
 
                 const isGood = normalizedRating >= 7;
                 const isMedium = normalizedRating >= 5;
 
-                // Display value based on question type
                 let displayValue = '';
                 if (param.question_type === 'yes_no') {
-                  // For yes/no, show percentage of "Yes" responses
                   const yesPercent = (param.average * 100).toFixed(0);
                   displayValue = `${yesPercent}% Yes`;
                 } else if (param.question_type === 'scale_3') {
-                  // For scale_3, show average out of 3
                   displayValue = `${param.average.toFixed(1)}/3`;
                 } else {
-                  // For scale_1_10, show average out of 10
                   displayValue = `${param.average.toFixed(1)}/10`;
                 }
 
                 return (
                   <div key={param.id}>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm text-gray-600 leading-snug flex-1 pr-3">
+                    <div className="flex items-start sm:items-center justify-between mb-1.5 sm:mb-2 gap-2">
+                      <span className="text-xs sm:text-sm text-gray-600 leading-snug flex-1">
                         {param.text}
                       </span>
-                      <span className={`text-sm font-bold tabular-nums whitespace-nowrap ${
+                      <span className={`text-xs sm:text-sm font-bold tabular-nums whitespace-nowrap flex-shrink-0 ${
                         isGood ? 'text-green-600' :
                         isMedium ? 'text-yellow-600' : 'text-red-600'
                       }`}>
                         {displayValue}
                       </span>
                     </div>
-                    <div className="w-full bg-gray-100 rounded-full h-2">
+                    <div className="w-full bg-gray-100 rounded-full h-1.5 sm:h-2">
                       <div
-                        className={`h-2 rounded-full transition-all duration-500 ${
+                        className={`h-1.5 sm:h-2 rounded-full transition-all duration-500 ${
                           isGood ? 'bg-green-500' :
                           isMedium ? 'bg-yellow-500' : 'bg-red-500'
                         }`}
@@ -469,26 +459,26 @@ function ReportContent() {
           </div>
 
           {/* Student Comments */}
-          <div className="bg-white rounded-2xl border border-gray-100 p-6">
-            <h2 className="text-base font-semibold text-gray-900 mb-4">
-              Student Comments
-              <span className="ml-2 text-sm font-normal text-gray-400">({stats.comments.length})</span>
+          <div className="bg-white rounded-xl sm:rounded-2xl border border-gray-100 p-4 sm:p-6">
+            <h2 className="text-sm sm:text-base font-semibold text-gray-900 mb-3 sm:mb-4">
+              Comments
+              <span className="ml-1.5 sm:ml-2 text-xs sm:text-sm font-normal text-gray-400">({stats.comments.length})</span>
             </h2>
             {stats.comments.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-center">
-                <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mb-3">
-                  <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="flex flex-col items-center justify-center py-8 sm:py-12 text-center">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gray-100 rounded-full flex items-center justify-center mb-2 sm:mb-3">
+                  <svg className="w-5 h-5 sm:w-6 sm:h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                   </svg>
                 </div>
-                <p className="text-sm text-gray-400">No comments submitted yet.</p>
+                <p className="text-xs sm:text-sm text-gray-400">No comments submitted yet.</p>
               </div>
             ) : (
-              <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
+              <div className="space-y-2 sm:space-y-3 max-h-[400px] sm:max-h-[500px] overflow-y-auto pr-1">
                 {stats.comments.map((comment, idx) => (
-                  <div key={idx} className="p-4 bg-gray-50 rounded-xl">
-                    <p className="text-sm text-gray-700 leading-relaxed">&ldquo;{comment.text}&rdquo;</p>
-                    <p className="text-xs text-gray-400 mt-2">
+                  <div key={idx} className="p-3 sm:p-4 bg-gray-50 rounded-lg sm:rounded-xl">
+                    <p className="text-xs sm:text-sm text-gray-700 leading-relaxed">&ldquo;{comment.text}&rdquo;</p>
+                    <p className="text-[10px] sm:text-xs text-gray-400 mt-1.5 sm:mt-2">
                       {new Date(comment.date).toLocaleDateString('en-IN', {
                         day: 'numeric',
                         month: 'short',

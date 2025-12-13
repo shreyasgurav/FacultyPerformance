@@ -379,8 +379,22 @@ function GenerateFormsContent() {
         >
           <ArrowLeftIcon className="w-5 h-5" />
         </Link>
-        <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Generate Forms</h1>
-        <p className="text-gray-500 text-xs sm:text-sm mt-1">Create feedback forms for divisions or batches</p>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Generate Forms</h1>
+            <p className="text-gray-500 text-xs sm:text-sm mt-1">Create feedback forms for divisions or batches</p>
+          </div>
+          <Link
+            href="/admin/form-editor"
+            className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 sm:py-2 bg-gray-100 text-gray-700 rounded-lg text-xs sm:text-sm font-medium hover:bg-gray-200 transition-colors flex-shrink-0"
+          >
+            <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            </svg>
+            <span className="hidden sm:inline">Edit Form</span>
+            <span className="sm:hidden">Edit</span>
+          </Link>
+        </div>
       </div>
 
       {successMessage && (
@@ -512,7 +526,7 @@ function GenerateFormsContent() {
                 <select
                   value={selectedSemester}
                   onChange={(e) => setSelectedSemester(e.target.value)}
-                  className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition-colors"
+                  className="w-full px-2 sm:px-3 py-2 sm:py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition-colors"
                 >
                   <option value="">Select</option>
                   {semesters.map(s => (
@@ -525,7 +539,7 @@ function GenerateFormsContent() {
                 <select
                   value={selectedCourse}
                   onChange={(e) => setSelectedCourse(e.target.value)}
-                  className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition-colors"
+                  className="w-full px-2 sm:px-3 py-2 sm:py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition-colors"
                 >
                   <option value="">Select</option>
                   {courses.map(c => (
@@ -535,37 +549,41 @@ function GenerateFormsContent() {
               </div>
             </div>
 
-            {/* Row 2: Division & Batch (optional) */}
-            <div className="grid grid-cols-3 gap-2 sm:gap-3">
+            {/* Row 2: Division & Batch */}
+            <div className="grid grid-cols-2 gap-2 sm:gap-3">
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1.5">Division</label>
                 <select
                   value={selectedDivision}
                   onChange={(e) => handleDivisionChange(e.target.value)}
-                  className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition-colors"
+                  className="w-full px-2 sm:px-3 py-2 sm:py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition-colors"
                 >
                   <option value="">Select</option>
                   {divisions.map(div => (
-                    <option key={div} value={div}>Div {div}</option>
+                    <option key={div} value={div}>{div}</option>
                   ))}
                 </select>
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1.5">
-                  Batch <span className="text-gray-400 font-normal">(for lab)</span>
+                  <span className="sm:hidden">Batch</span>
+                  <span className="hidden sm:inline">Batch <span className="text-gray-400 font-normal">(for lab)</span></span>
                 </label>
                 <select
                   value={selectedBatch}
                   onChange={(e) => setSelectedBatch(e.target.value)}
                   disabled={!selectedDivision}
-                  className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition-colors disabled:opacity-50"
+                  className="w-full px-2 sm:px-3 py-2 sm:py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition-colors disabled:opacity-50"
                 >
-                  <option value="">None (Theory)</option>
+                  <option value="">None</option>
                   {batches.map(batch => (
-                    <option key={batch} value={batch}>{batch} (Lab)</option>
+                    <option key={batch} value={batch}>{batch}</option>
                   ))}
                 </select>
               </div>
+            </div>
+
+            {/* Row 3: Academic Year */}
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1.5">Academic Year</label>
                 <input
@@ -573,9 +591,8 @@ function GenerateFormsContent() {
                   value={academicYear}
                   onChange={(e) => setAcademicYear(e.target.value)}
                   placeholder="e.g., 2025-26"
-                  className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition-colors"
+                className="w-full px-2 sm:px-3 py-2 sm:py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition-colors"
                 />
-              </div>
             </div>
 
             {/* Subject Name */}
@@ -586,7 +603,7 @@ function GenerateFormsContent() {
                 value={subjectName}
                 onChange={(e) => setSubjectName(e.target.value)}
                 placeholder="e.g., Machine Learning"
-                className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition-colors"
+                className="w-full px-2 sm:px-3 py-2 sm:py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition-colors"
               />
             </div>
 
@@ -603,8 +620,8 @@ function GenerateFormsContent() {
                 }}
                 onFocus={() => setShowFacultyDropdown(true)}
                 disabled={isLoadingFaculty}
-                placeholder={isLoadingFaculty ? 'Loading faculty...' : 'Search faculty by name...'}
-                className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition-colors disabled:opacity-50"
+                placeholder={isLoadingFaculty ? 'Loading...' : 'Search faculty by name...'}
+                className="w-full px-2 sm:px-3 py-2 sm:py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition-colors disabled:opacity-50"
               />
               {showFacultyDropdown && !isLoadingFaculty && (
                 <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
@@ -708,15 +725,6 @@ function GenerateFormsContent() {
         </div>
       )}
 
-      <div className="flex items-center justify-center gap-4 text-sm text-gray-500">
-        <Link href="/admin/feedback" className="text-blue-600 hover:text-blue-700">
-          View all forms
-        </Link>
-        <span className="text-gray-300">|</span>
-        <Link href="/admin/form-editor" className="text-blue-600 hover:text-blue-700">
-          Edit form questions
-        </Link>
-      </div>
     </div>
   );
 }
