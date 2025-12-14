@@ -4,6 +4,9 @@ import { prisma } from '@/lib/prisma';
 // Fallback admin emails (always have access, even if DB is empty)
 const FALLBACK_ADMIN_EMAILS = [
   'shrreyasgurav@gmail.com',
+  'atharvanmane22@gmail.com',
+  'parekhsachi04@gmail.com',
+  'mishrasoham.uni@gmail.com',
 ];
 
 export async function GET(request: NextRequest) {
