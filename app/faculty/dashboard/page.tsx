@@ -87,15 +87,18 @@ function FacultyDashboardContent() {
   ) : [];
 
   // Helper to normalize rating to 0-10 scale based on question type
+  // Works for both individual values and averages
   const normalizeRating = (rating: number, questionType: string): number => {
     if (questionType === 'yes_no') {
-      // yes_no: 1 = Yes (10), 0 = No (0)
-      return rating === 1 ? 10 : 0;
+      // yes_no: 0 = No, 1 = Yes. Multiply by 10 to get 0-10 scale
+      // Works for averages too (e.g., 0.6 avg = 6/10)
+      return rating * 10;
     } else if (questionType === 'scale_3') {
-      // scale_3: 1 = Need improvement (3.3), 2 = Satisfactory (6.6), 3 = Good (10)
+      // scale_3: 1 = Need improvement, 2 = Satisfactory, 3 = Good
+      // Normalize to 0-10 scale: (rating / 3) * 10
       return (rating / 3) * 10;
     }
-    // scale_1_10: already 1-10
+    // scale_1_10: already 1-10, no conversion needed
     return rating;
   };
 

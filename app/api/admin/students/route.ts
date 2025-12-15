@@ -97,7 +97,19 @@ export async function POST(request: NextRequest) {
     });
     
     if (existingStudent) {
-      // Update existing student with new data
+      // Ensure user record exists (upsert) - fixes login issues after re-adding student
+      const user = await prisma.users.upsert({
+        where: { email },
+        update: { name },
+        create: {
+          id: `user_${Date.now()}`,
+          name,
+          email,
+          role: 'student',
+        },
+      });
+
+      // Update existing student with new data and link to user
       const updatedStudent = await prisma.students.update({
         where: { email },
         data: {
@@ -106,19 +118,7 @@ export async function POST(request: NextRequest) {
           course: course || 'IT',
           division,
           batch: batch || null,
-        },
-      });
-
-      // Ensure user record exists (upsert) - fixes login issues after re-adding student
-      await prisma.users.upsert({
-        where: { email },
-        update: { name },
-        create: {
-          id: `user_${Date.now()}`,
-          name,
-          email,
-          role: 'student',
-          student_id: existingStudent.id,
+          user_id: user.id,
         },
       });
 
@@ -149,7 +149,17 @@ export async function POST(request: NextRequest) {
     const studentId = `stu_${Date.now()}`;
     const userId = `user_${Date.now()}`;
 
-    // Create student record
+    // Create user record first
+    const user = await prisma.users.create({
+      data: {
+        id: userId,
+        name,
+        email,
+        role: 'student',
+      },
+    });
+
+    // Create student record with user_id reference
     const student = await prisma.students.create({
       data: {
         id: studentId,
@@ -160,17 +170,7 @@ export async function POST(request: NextRequest) {
         course: course || 'IT',
         division,
         batch: batch || null,
-      },
-    });
-
-    // Create user record with role 'student'
-    await prisma.users.create({
-      data: {
-        id: userId,
-        name,
-        email,
-        role: 'student',
-        student_id: studentId,
+        user_id: user.id,
       },
     });
 
@@ -297,9 +297,17 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Student not found' }, { status: 404 });
     }
 
-    // Delete associated user record first
+    // Delete associated user record first (if linked)
+    if (student.user_id) {
+      await prisma.users.delete({
+        where: { id: student.user_id },
+      }).catch(() => {
+        // Ignore if user doesn't exist
+      });
+    }
+    // Also delete by email as fallback for old data
     await prisma.users.deleteMany({
-      where: { student_id: id },
+      where: { email: student.email },
     });
 
     // Store the student email in the comment field of responses for future re-linking

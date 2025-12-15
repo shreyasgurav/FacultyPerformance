@@ -39,6 +39,7 @@ export async function POST(request: NextRequest) {
       course: string;
       division: string;
       batch: string | null;
+      user_id: string;
     }> = [];
 
     const newUserRecords: Array<{
@@ -46,7 +47,6 @@ export async function POST(request: NextRequest) {
       name: string;
       email: string;
       role: 'student';
-      student_id: string;
     }> = [];
 
     const updatePromises: Promise<unknown>[] = [];
@@ -78,55 +78,59 @@ export async function POST(request: NextRequest) {
       
       if (existingId) {
         // Update existing student
+        const userId = `user_${now}_upd_${i}`;
         updatePromises.push(
-          prisma.students.update({
-            where: { id: existingId },
-            data: {
+          // First ensure user exists
+          prisma.users.upsert({
+            where: { email: normalizedEmail },
+            update: { name },
+            create: {
+              id: userId,
               name,
-              semester: semesterNum,
-              course: course || 'IT',
-              division,
-              batch: batch || null,
+              email: normalizedEmail,
+              role: 'student',
             },
-          }).then(() => {
-            // Ensure user record exists (upsert) - fixes login issues after re-adding student
-            return prisma.users.upsert({
-              where: { email: normalizedEmail },
-              update: { name },
-              create: {
-                id: `user_${now}_upd_${i}`,
+          }).then((user) => {
+            // Then update student with user_id link
+            return prisma.students.update({
+              where: { id: existingId },
+              data: {
                 name,
-                email: normalizedEmail,
-                role: 'student',
-                student_id: existingId,
+                semester: semesterNum,
+                course: course || 'IT',
+                division,
+                batch: batch || null,
+                user_id: user.id,
               },
             });
           })
         );
         updated++;
       } else {
-        // New student
-      const studentId = `stu_${now}_${i}`;
-      const userId = `user_${now}_${i}`;
+        // New student - generate IDs
+        const studentId = `stu_${now}_${i}`;
+        const userId = `user_${now}_${i}`;
 
-        newStudentRecords.push({
-        id: studentId,
-        name,
-        email: normalizedEmail,
-        department_id: 'dept1',
-        semester: semesterNum,
-        course: course || 'IT',
-        division,
-        batch: batch || null,
-      });
-
+        // User record (created first)
         newUserRecords.push({
-        id: userId,
-        name,
-        email: normalizedEmail,
-        role: 'student',
-        student_id: studentId,
-      });
+          id: userId,
+          name,
+          email: normalizedEmail,
+          role: 'student',
+        });
+
+        // Student record with user_id reference
+        newStudentRecords.push({
+          id: studentId,
+          name,
+          email: normalizedEmail,
+          department_id: 'dept1',
+          semester: semesterNum,
+          course: course || 'IT',
+          division,
+          batch: batch || null,
+          user_id: userId,
+        });
 
         // Mark as existing for rest of batch
         existingByEmail.set(normalizedEmail, studentId);
@@ -139,17 +143,19 @@ export async function POST(request: NextRequest) {
       await Promise.all(updatePromises);
     }
 
-    // Bulk create new students
-    if (newStudentRecords.length > 0) {
-    await prisma.students.createMany({
-        data: newStudentRecords,
-      skipDuplicates: true,
-    });
-
-    await prisma.users.createMany({
+    // Bulk create - users first, then students (students reference users)
+    if (newUserRecords.length > 0) {
+      await prisma.users.createMany({
         data: newUserRecords,
-      skipDuplicates: true,
-    });
+        skipDuplicates: true,
+      });
+    }
+
+    if (newStudentRecords.length > 0) {
+      await prisma.students.createMany({
+        data: newStudentRecords,
+        skipDuplicates: true,
+      });
     }
 
     return NextResponse.json({
@@ -202,10 +208,26 @@ export async function DELETE(request: NextRequest) {
       });
     }
 
-    // 2. Delete users linked to these students
-    await prisma.users.deleteMany({
-      where: { student_id: { in: ids } },
+    // 2. Get emails of students to delete, then delete associated users
+    const studentsToDelete = await prisma.students.findMany({
+      where: { id: { in: ids } },
+      select: { email: true, user_id: true },
     });
+    const emailsToDelete = studentsToDelete.map(s => s.email);
+    const userIdsToDelete = studentsToDelete.map(s => s.user_id).filter((id): id is string => id !== null);
+
+    // Delete users by user_id (new FK direction)
+    if (userIdsToDelete.length > 0) {
+      await prisma.users.deleteMany({
+        where: { id: { in: userIdsToDelete } },
+      });
+    }
+    // Fallback: delete by email for old data without user_id
+    if (emailsToDelete.length > 0) {
+      await prisma.users.deleteMany({
+        where: { email: { in: emailsToDelete } },
+      });
+    }
 
     // 3. Delete student records
     const result = await prisma.students.deleteMany({

@@ -90,7 +90,17 @@ export async function POST(request: NextRequest) {
     const facultyId = `fac_${Date.now()}`;
     const userId = `user_${Date.now()}_f`;
 
-    // Create faculty record, including faculty code
+    // Create user record first
+    const user = await prisma.users.create({
+      data: {
+        id: userId,
+        name,
+        email,
+        role: 'faculty',
+      },
+    });
+
+    // Create faculty record with user_id reference
     const faculty = await prisma.faculty.create({
       data: {
         id: facultyId,
@@ -98,18 +108,8 @@ export async function POST(request: NextRequest) {
         email,
         department_id: 'dept1', // IT department
         faculty_code: facultyCode,
-      } as { id: string; name: string; email: string; department_id: string; faculty_code?: string },
-    });
-
-    // Create user record with role 'faculty'
-    await prisma.users.create({
-      data: {
-        id: userId,
-        name,
-        email,
-        role: 'faculty',
-        faculty_id: facultyId,
-      },
+        user_id: user.id,
+      } as { id: string; name: string; email: string; department_id: string; faculty_code?: string; user_id?: string },
     });
 
     // Return in frontend format
@@ -143,9 +143,26 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Missing faculty ID' }, { status: 400 });
     }
 
-    // Delete associated user record first
+    // Get faculty to find user_id
+    const faculty = await prisma.faculty.findUnique({
+      where: { id },
+    });
+
+    if (!faculty) {
+      return NextResponse.json({ error: 'Faculty not found' }, { status: 404 });
+    }
+
+    // Delete associated user record first (if linked)
+    if (faculty.user_id) {
+      await prisma.users.delete({
+        where: { id: faculty.user_id },
+      }).catch(() => {
+        // Ignore if user doesn't exist
+      });
+    }
+    // Also delete by email as fallback for old data
     await prisma.users.deleteMany({
-      where: { faculty_id: id },
+      where: { email: faculty.email },
     });
 
     // Delete faculty record

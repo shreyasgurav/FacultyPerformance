@@ -118,29 +118,19 @@ function ReportContent() {
   }, [formId, authFetch, userRole]);
 
   // Helper to normalize rating to 0-10 scale based on question type
+  // Works for both individual values and averages
   const normalizeRating = (rating: number, questionType: string): number => {
     if (questionType === 'yes_no') {
-      // yes_no: 1 = Yes (10), 0 = No (0)
-      return rating === 1 ? 10 : 0;
+      // yes_no: 0 = No, 1 = Yes. Multiply by 10 to get 0-10 scale
+      // Works for averages too (e.g., 0.6 avg = 6/10)
+      return rating * 10;
     } else if (questionType === 'scale_3') {
-      // scale_3: 1 = Need improvement (3.3), 2 = Satisfactory (6.6), 3 = Good (10)
+      // scale_3: 1 = Need improvement, 2 = Satisfactory, 3 = Good
+      // Normalize to 0-10 scale: (rating / 3) * 10
       return (rating / 3) * 10;
     }
-    // scale_1_10: already 1-10
+    // scale_1_10: already 1-10, no conversion needed
     return rating;
-  };
-
-  // Get display text for rating based on question type
-  const getRatingDisplay = (avg: number, questionType: string): string => {
-    if (questionType === 'yes_no') {
-      const yesPercent = (avg * 100).toFixed(0);
-      return `${yesPercent}% Yes`;
-    } else if (questionType === 'scale_3') {
-      // avg is already normalized to 10, convert back to 3-scale for display
-      const scale3Avg = (avg / 10) * 3;
-      return scale3Avg.toFixed(1) + '/3';
-    }
-    return avg.toFixed(1) + '/10';
   };
 
   // Calculate stats - prefer embedded question data from responses, fallback to formQuestions

@@ -24,6 +24,7 @@ export async function POST(request: NextRequest) {
       email: string;
       department_id: string;
       faculty_code: string | null;
+      user_id: string;
     }> = [];
 
     const userRecords: Array<{
@@ -31,7 +32,6 @@ export async function POST(request: NextRequest) {
       name: string;
       email: string;
       role: 'faculty';
-      faculty_id: string;
     }> = [];
 
     const errors: string[] = [];
@@ -59,20 +59,22 @@ export async function POST(request: NextRequest) {
       const facultyId = `fac_${now}_${i}`;
       const userId = `user_${now}_${i}`;
 
+      // User record (created first)
+      userRecords.push({
+        id: userId,
+        name,
+        email: normalizedEmail,
+        role: 'faculty',
+      });
+
+      // Faculty record with user_id reference
       facultyRecords.push({
         id: facultyId,
         name,
         email: normalizedEmail,
         department_id: 'dept1',
         faculty_code: fCode,
-      });
-
-      userRecords.push({
-        id: userId,
-        name,
-        email: normalizedEmail,
-        role: 'faculty',
-        faculty_id: facultyId,
+        user_id: userId,
       });
 
       existingEmails.add(normalizedEmail);
@@ -85,13 +87,15 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    await prisma.faculty.createMany({
-      data: facultyRecords,
+    // Create users first (faculty references users)
+    await prisma.users.createMany({
+      data: userRecords,
       skipDuplicates: true,
     });
 
-    await prisma.users.createMany({
-      data: userRecords,
+    // Then create faculty with user_id references
+    await prisma.faculty.createMany({
+      data: facultyRecords,
       skipDuplicates: true,
     });
 
@@ -124,15 +128,31 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'No faculty IDs provided' }, { status: 400 });
     }
 
-    // Delete users linked to these faculty
-    await prisma.users.deleteMany({
-      where: { faculty_id: { in: ids } },
+    // Get emails and user_ids of faculty to delete
+    const facultyToDelete = await prisma.faculty.findMany({
+      where: { id: { in: ids } },
+      select: { email: true, user_id: true },
     });
+    const emailsToDelete = facultyToDelete.map(f => f.email);
+    const userIdsToDelete = facultyToDelete.map(f => f.user_id).filter((id): id is string => id !== null);
 
-    // Delete faculty records
+    // Delete faculty records first (they reference users)
     const result = await prisma.faculty.deleteMany({
       where: { id: { in: ids } },
     });
+
+    // Delete users by user_id (new FK direction)
+    if (userIdsToDelete.length > 0) {
+      await prisma.users.deleteMany({
+        where: { id: { in: userIdsToDelete } },
+      });
+    }
+    // Fallback: delete by email for old data without user_id
+    if (emailsToDelete.length > 0) {
+      await prisma.users.deleteMany({
+        where: { email: { in: emailsToDelete } },
+      });
+    }
 
     return NextResponse.json({
       message: `Deleted ${result.count} faculty member(s)`,
