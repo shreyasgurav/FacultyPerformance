@@ -26,14 +26,16 @@ function FormEditorContent() {
   const [parameters, setParameters] = useState<FeedbackParameter[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [editingParam, setEditingParam] = useState<FeedbackParameter | null>(null);
+  const [deleteParam, setDeleteParam] = useState<FeedbackParameter | null>(null);
   const [editText, setEditText] = useState('');
   const [editType, setEditType] = useState('');
-  const [showAddModal, setShowAddModal] = useState(false);
   const [newQuestion, setNewQuestion] = useState({ text: '', question_type: 'scale_3' });
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
-  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
 
@@ -64,20 +66,22 @@ function FormEditorContent() {
     .filter(p => p.form_type === activeTab)
     .sort((a, b) => a.position - b.position);
 
-  const handleStartEdit = (param: FeedbackParameter) => {
-    setEditingId(param.id);
+  const handleOpenEdit = (param: FeedbackParameter) => {
+    setEditingParam(param);
     setEditText(param.text);
     setEditType(param.question_type);
+    setShowEditModal(true);
   };
 
-  const handleCancelEdit = () => {
-    setEditingId(null);
+  const handleCloseEdit = () => {
+    setShowEditModal(false);
+    setEditingParam(null);
     setEditText('');
     setEditType('');
   };
 
   const handleSaveEdit = async () => {
-    if (!editingId || !editText.trim()) return;
+    if (!editingParam || !editText.trim()) return;
 
     setIsSaving(true);
     try {
@@ -85,7 +89,7 @@ function FormEditorContent() {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          id: editingId,
+          id: editingParam.id,
           text: editText.trim(),
           question_type: editType,
         }),
@@ -94,14 +98,14 @@ function FormEditorContent() {
       if (res.ok) {
         setParameters(prev =>
           prev.map(p =>
-            p.id === editingId
+            p.id === editingParam.id
               ? { ...p, text: editText.trim(), question_type: editType }
               : p
           )
         );
         setSuccessMessage('Question updated successfully');
         setTimeout(() => setSuccessMessage(''), 3000);
-        handleCancelEdit();
+        handleCloseEdit();
       } else {
         const err = await res.json();
         setErrorMessage(err.error || 'Failed to update');
@@ -155,17 +159,30 @@ function FormEditorContent() {
     }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleOpenDelete = (param: FeedbackParameter) => {
+    setDeleteParam(param);
+    setShowDeleteModal(true);
+  };
+
+  const handleCloseDelete = () => {
+    setShowDeleteModal(false);
+    setDeleteParam(null);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteParam) return;
+
     setIsSaving(true);
     try {
-      const res = await authFetch(`/api/admin/feedback-parameters?id=${id}`, {
+      const res = await authFetch(`/api/admin/feedback-parameters?id=${deleteParam.id}`, {
         method: 'DELETE',
       });
 
       if (res.ok) {
-        setParameters(prev => prev.filter(p => p.id !== id));
+        setParameters(prev => prev.filter(p => p.id !== deleteParam.id));
         setSuccessMessage('Question deleted successfully');
         setTimeout(() => setSuccessMessage(''), 3000);
+        handleCloseDelete();
       } else {
         const err = await res.json();
         setErrorMessage(err.error || 'Failed to delete');
@@ -176,7 +193,6 @@ function FormEditorContent() {
       setTimeout(() => setErrorMessage(''), 3000);
     } finally {
       setIsSaving(false);
-      setDeleteConfirm(null);
     }
   };
 
@@ -309,95 +325,38 @@ function FormEditorContent() {
           <div className="divide-y divide-gray-100">
             {filteredParams.map((param, index) => (
               <div key={param.id} className="p-3 sm:p-4 hover:bg-gray-50/50 transition-colors">
-                {editingId === param.id ? (
-                  /* Edit Mode */
-                  <div className="space-y-2 sm:space-y-3">
-                    <textarea
-                      value={editText}
-                      onChange={(e) => setEditText(e.target.value)}
-                      className="w-full px-2.5 sm:px-3 py-2 sm:py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
-                      rows={2}
-                      autoFocus
-                    />
-                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
-                      <select
-                        value={editType}
-                        onChange={(e) => setEditType(e.target.value)}
-                        className="flex-1 px-2.5 sm:px-3 py-1.5 sm:py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs sm:text-sm focus:ring-2 focus:ring-blue-500"
-                      >
-                        {QUESTION_TYPES.map(type => (
-                          <option key={type.value} value={type.value}>{type.label}</option>
-                        ))}
-                      </select>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={handleSaveEdit}
-                          disabled={isSaving}
-                          className="flex-1 sm:flex-none px-3 sm:px-4 py-1.5 sm:py-2 bg-blue-600 text-white rounded-lg text-xs sm:text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
-                        >
-                          Save
-                        </button>
-                        <button
-                          onClick={handleCancelEdit}
-                          className="flex-1 sm:flex-none px-3 sm:px-4 py-1.5 sm:py-2 bg-gray-100 text-gray-600 rounded-lg text-xs sm:text-sm font-medium hover:bg-gray-200"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  /* View Mode */
-                  <div className="flex items-start gap-2 sm:gap-3">
-                    {/* Position Number */}
-                    <span className="w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center bg-gray-100 rounded-full text-[10px] sm:text-xs font-medium text-gray-500 mt-0.5 flex-shrink-0">
-                      {index + 1}
-                    </span>
+                <div className="flex items-start gap-2 sm:gap-3">
+                  {/* Position Number */}
+                  <span className="w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center bg-gray-100 rounded-full text-[10px] sm:text-xs font-medium text-gray-500 mt-0.5 flex-shrink-0">
+                    {index + 1}
+                  </span>
 
-                    {/* Question Content */}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs sm:text-sm text-gray-900 leading-relaxed">{param.text}</p>
-                      <p className="text-[10px] sm:text-xs text-gray-400 mt-0.5 sm:mt-1">{getQuestionTypeLabel(param.question_type)}</p>
-                    </div>
-
-                    {/* Actions */}
-                    <div className="flex items-center gap-0.5 sm:gap-1 flex-shrink-0">
-                      <button
-                        onClick={() => handleStartEdit(param)}
-                        className="p-1.5 sm:p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                        title="Edit"
-                      >
-                        <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                        </svg>
-                      </button>
-                      {deleteConfirm === param.id ? (
-                        <div className="flex items-center gap-1">
-                          <button
-                            onClick={() => handleDelete(param.id)}
-                            className="px-1.5 sm:px-2 py-0.5 sm:py-1 bg-red-600 text-white rounded text-[10px] sm:text-xs font-medium"
-                          >
-                            Yes
-                          </button>
-                          <button
-                            onClick={() => setDeleteConfirm(null)}
-                            className="px-1.5 sm:px-2 py-0.5 sm:py-1 bg-gray-200 text-gray-600 rounded text-[10px] sm:text-xs font-medium"
-                          >
-                            No
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() => setDeleteConfirm(param.id)}
-                          className="p-1.5 sm:p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                          title="Delete"
-                        >
-                          <TrashIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                        </button>
-                      )}
-                    </div>
+                  {/* Question Content */}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs sm:text-sm text-gray-900 leading-relaxed">{param.text}</p>
+                    <p className="text-[10px] sm:text-xs text-gray-400 mt-0.5 sm:mt-1">{getQuestionTypeLabel(param.question_type)}</p>
                   </div>
-                )}
+
+                  {/* Actions */}
+                  <div className="flex items-center gap-0.5 sm:gap-1 flex-shrink-0">
+                    <button
+                      onClick={() => handleOpenEdit(param)}
+                      className="p-1.5 sm:p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                      title="Edit"
+                    >
+                      <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={() => handleOpenDelete(param)}
+                      className="p-1.5 sm:p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                      title="Delete"
+                    >
+                      <TrashIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                    </button>
+                  </div>
+                </div>
               </div>
             ))}
           </div>
@@ -407,57 +366,228 @@ function FormEditorContent() {
       {/* Add Question Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-3 sm:p-4">
-          <div className="bg-white rounded-xl sm:rounded-2xl w-full max-w-lg p-4 sm:p-6 max-h-[90vh] overflow-y-auto">
-            <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">Add New Question</h2>
-            
-            <div className="space-y-3 sm:space-y-4">
+          <div className="bg-white rounded-xl sm:rounded-2xl w-full max-w-md shadow-xl overflow-hidden">
+            {/* Modal Header */}
+            <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200 flex items-center justify-between">
               <div>
-                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-1.5">Question Text</label>
-                <textarea
-                  value={newQuestion.text}
-                  onChange={(e) => setNewQuestion(prev => ({ ...prev, text: e.target.value }))}
-                  placeholder="Enter your question..."
-                  className="w-full px-2.5 sm:px-3 py-2 sm:py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
-                  rows={3}
-                  autoFocus
-                />
+                <h3 className="text-base sm:text-lg font-semibold text-gray-900">Add Question</h3>
+                <p className="text-xs sm:text-sm text-gray-500">Add a new question to {activeTab} form</p>
               </div>
-
-              <div>
-                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-1.5">Response Type</label>
-                <select
-                  value={newQuestion.question_type}
-                  onChange={(e) => setNewQuestion(prev => ({ ...prev, question_type: e.target.value }))}
-                  className="w-full px-2.5 sm:px-3 py-2 sm:py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-xs sm:text-sm focus:ring-2 focus:ring-blue-500"
-                >
-                  {QUESTION_TYPES.map(type => (
-                    <option key={type.value} value={type.value}>{type.label}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="p-2.5 sm:p-3 bg-gray-50 rounded-lg">
-                <p className="text-[10px] sm:text-xs text-gray-500 mb-1 sm:mb-2">Adding to: <span className="font-medium text-gray-700">{activeTab === 'theory' ? 'Theory' : 'Lab'}</span></p>
-                <p className="text-[10px] sm:text-xs text-gray-400">Position: #{filteredParams.length + 1}</p>
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-2 sm:gap-3 mt-4 sm:mt-6">
               <button
                 onClick={() => {
                   setShowAddModal(false);
                   setNewQuestion({ text: '', question_type: 'scale_3' });
                 }}
-                className="px-3 sm:px-4 py-1.5 sm:py-2.5 bg-gray-100 text-gray-600 rounded-lg text-xs sm:text-sm font-medium hover:bg-gray-200 transition-colors"
+                className="p-1.5 sm:p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="px-4 sm:px-6 py-4 sm:py-5">
+              <div className="space-y-3 sm:space-y-4">
+                <div>
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Question Text</label>
+                  <textarea
+                    value={newQuestion.text}
+                    onChange={(e) => setNewQuestion(prev => ({ ...prev, text: e.target.value }))}
+                    placeholder="Enter your question..."
+                    className="w-full px-3 py-2 sm:py-2.5 text-sm border border-gray-200 rounded-lg focus:ring-1 focus:ring-gray-300 focus:border-gray-300 outline-none resize-none"
+                    rows={3}
+                    autoFocus
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Response Type</label>
+                  <select
+                    value={newQuestion.question_type}
+                    onChange={(e) => setNewQuestion(prev => ({ ...prev, question_type: e.target.value }))}
+                    className="w-full px-3 py-2 sm:py-2.5 text-sm border border-gray-200 rounded-lg focus:ring-1 focus:ring-gray-300 focus:border-gray-300 outline-none"
+                  >
+                    {QUESTION_TYPES.map(type => (
+                      <option key={type.value} value={type.value}>{type.label}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="p-3 bg-gray-50 rounded-lg border border-gray-100">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center">
+                      <span className="text-xs font-medium text-gray-600">#{filteredParams.length + 1}</span>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-600">Will be added as question <span className="font-medium">#{filteredParams.length + 1}</span></p>
+                      <p className="text-xs text-gray-400">Form type: {activeTab === 'theory' ? 'Theory' : 'Lab'}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-4 sm:px-6 py-3 sm:py-4 bg-gray-50 border-t border-gray-200 flex justify-end gap-2 sm:gap-3">
+              <button
+                onClick={() => {
+                  setShowAddModal(false);
+                  setNewQuestion({ text: '', question_type: 'scale_3' });
+                }}
+                className="px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleAddQuestion}
                 disabled={!newQuestion.text.trim() || isSaving}
-                className="px-3 sm:px-4 py-1.5 sm:py-2.5 bg-gray-900 text-white rounded-lg text-xs sm:text-sm font-medium hover:bg-gray-800 transition-colors disabled:opacity-50"
+                className="px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
-                {isSaving ? 'Adding...' : 'Add'}
+                {isSaving && (
+                  <svg className="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                )}
+                {isSaving ? 'Adding...' : 'Add Question'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Question Modal */}
+      {showEditModal && editingParam && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-3 sm:p-4">
+          <div className="bg-white rounded-xl sm:rounded-2xl w-full max-w-md shadow-xl overflow-hidden">
+            {/* Modal Header */}
+            <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200 flex items-center justify-between">
+              <div>
+                <h3 className="text-base sm:text-lg font-semibold text-gray-900">Edit Question</h3>
+                <p className="text-xs sm:text-sm text-gray-500">Modify question text and response type</p>
+              </div>
+              <button
+                onClick={handleCloseEdit}
+                className="p-1.5 sm:p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="px-4 sm:px-6 py-4 sm:py-5">
+              <div className="space-y-3 sm:space-y-4">
+                <div>
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Question Text</label>
+                  <textarea
+                    value={editText}
+                    onChange={(e) => setEditText(e.target.value)}
+                    placeholder="Enter your question..."
+                    className="w-full px-3 py-2 sm:py-2.5 text-sm border border-gray-200 rounded-lg focus:ring-1 focus:ring-gray-300 focus:border-gray-300 outline-none resize-none"
+                    rows={3}
+                    autoFocus
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Response Type</label>
+                  <select
+                    value={editType}
+                    onChange={(e) => setEditType(e.target.value)}
+                    className="w-full px-3 py-2 sm:py-2.5 text-sm border border-gray-200 rounded-lg focus:ring-1 focus:ring-gray-300 focus:border-gray-300 outline-none"
+                  >
+                    {QUESTION_TYPES.map(type => (
+                      <option key={type.value} value={type.value}>{type.label}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="p-3 bg-blue-50 rounded-lg border border-blue-100">
+                  <div className="flex items-center gap-2">
+                    <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <p className="text-xs text-blue-700">
+                      Question #{editingParam.position} • {editingParam.form_type === 'theory' ? 'Theory' : 'Lab'} form
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-4 sm:px-6 py-3 sm:py-4 bg-gray-50 border-t border-gray-200 flex justify-end gap-2 sm:gap-3">
+              <button
+                onClick={handleCloseEdit}
+                className="px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveEdit}
+                disabled={!editText.trim() || isSaving}
+                className="px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {isSaving && (
+                  <svg className="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                )}
+                {isSaving ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && deleteParam && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-3 sm:p-4">
+          <div className="bg-white rounded-xl sm:rounded-2xl w-full max-w-sm shadow-xl overflow-hidden">
+            {/* Modal Header */}
+            <div className="px-4 sm:px-6 py-4 sm:py-5">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+                  <TrashIcon className="w-5 h-5 text-red-600" />
+                </div>
+                <h3 className="text-base sm:text-lg font-semibold text-gray-900">Delete Question</h3>
+              </div>
+              
+              <p className="text-xs sm:text-sm text-gray-600 mb-3">
+                Are you sure you want to delete this question? This action cannot be undone.
+              </p>
+
+              <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                <p className="text-xs sm:text-sm text-gray-700 line-clamp-3">&ldquo;{deleteParam.text}&rdquo;</p>
+                <p className="text-xs text-gray-400 mt-1">{getQuestionTypeLabel(deleteParam.question_type)}</p>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-4 sm:px-6 py-3 sm:py-4 bg-gray-50 border-t border-gray-200 flex justify-end gap-2 sm:gap-3">
+              <button
+                onClick={handleCloseDelete}
+                disabled={isSaving}
+                className="px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmDelete}
+                disabled={isSaving}
+                className="px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+              >
+                {isSaving && (
+                  <svg className="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                )}
+                {isSaving ? 'Deleting...' : 'Delete'}
               </button>
             </div>
           </div>
@@ -467,33 +597,43 @@ function FormEditorContent() {
       {/* Reset Confirmation Modal */}
       {showResetConfirm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-3 sm:p-4">
-          <div className="bg-white rounded-xl sm:rounded-2xl w-full max-w-md p-4 sm:p-6">
-            <div className="flex items-center gap-2.5 sm:gap-3 mb-3 sm:mb-4">
-              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-orange-100 flex items-center justify-center flex-shrink-0">
-                <svg className="w-4 h-4 sm:w-5 sm:h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                </svg>
+          <div className="bg-white rounded-xl sm:rounded-2xl w-full max-w-sm shadow-xl overflow-hidden">
+            {/* Modal Header */}
+            <div className="px-4 sm:px-6 py-4 sm:py-5">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center flex-shrink-0">
+                  <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                </div>
+                <h3 className="text-base sm:text-lg font-semibold text-gray-900">Reset to Default</h3>
               </div>
-              <h2 className="text-base sm:text-lg font-semibold text-gray-900">Reset to Default?</h2>
+              
+              <p className="text-xs sm:text-sm text-gray-600">
+                This will delete all current questions and restore the original default questions for both Theory and Lab forms. This action cannot be undone.
+              </p>
             </div>
-            
-            <p className="text-xs sm:text-sm text-gray-600 mb-4 sm:mb-6">
-              This will delete all current questions and restore the original default questions for both Theory and Lab forms. This action cannot be undone.
-            </p>
 
-            <div className="flex justify-end gap-2 sm:gap-3">
+            {/* Modal Footer */}
+            <div className="px-4 sm:px-6 py-3 sm:py-4 bg-gray-50 border-t border-gray-200 flex justify-end gap-2 sm:gap-3">
               <button
                 onClick={() => setShowResetConfirm(false)}
                 disabled={isResetting}
-                className="px-3 sm:px-4 py-1.5 sm:py-2.5 bg-gray-100 text-gray-600 rounded-lg text-xs sm:text-sm font-medium hover:bg-gray-200 transition-colors disabled:opacity-50"
+                className="px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
                 onClick={handleResetToDefault}
                 disabled={isResetting}
-                className="px-3 sm:px-4 py-1.5 sm:py-2.5 bg-orange-600 text-white rounded-lg text-xs sm:text-sm font-medium hover:bg-orange-700 transition-colors disabled:opacity-50"
+                className="px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-white bg-orange-600 rounded-lg hover:bg-orange-700 transition-colors disabled:opacity-50 flex items-center gap-2"
               >
+                {isResetting && (
+                  <svg className="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                )}
                 {isResetting ? 'Resetting...' : 'Yes, Reset'}
               </button>
             </div>
