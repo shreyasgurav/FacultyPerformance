@@ -1,0 +1,19 @@
+subject,faculty_code,semester,course,division,batch,academic_year
+Deep Learning Lab,SDG,6,AIDS,B,B1,2025-26
+Deep Learning Lab,AMS,6,AIDS,B,B2,2025-26
+Deep Learning Lab,SPP,6,AIDS,B,B3,2025-26
+Deep Learning Theory,SPP,6,AIDS,B,,2025-26
+Big Data Analytics Lab,PPM,6,AIDS,B,B1,2025-26
+Big Data Analytics Lab,D_D,6,AIDS,B,B2,2025-26
+Big Data Analytics Lab,PPM,6,AIDS,B,B3,2025-26
+Big Data Analytics Theory,P_N,6,AIDS,B,,2025-26
+Data Analytics Lab,SBW,6,AIDS,B,B1,2025-26
+Data Analytics Lab,D_D,6,AIDS,B,B2,2025-26
+Data Analytics Lab,IT2,6,AIDS,B,B3,2025-26
+Data Warehousing and Mining Theory,SSR,6,AIDS,B,,2025-26
+Introduction to Remote Sensing Lab,SMP,6,AIDS,B,B1,2025-26
+Introduction to Remote Sensing Theory,SMP,6,AIDS,B,,2025-26
+Introduction to Biotechnology and Bioinformatics Lab,IT1,6,AIDS,B,B1,2025-26
+Introduction to Biotechnology and Bioinformatics Lab,SSL,6,AIDS,B,B2,2025-26
+Introduction to Biotechnology and Bioinformatics Theory,SSL,6,AIDS,B,,2025-26
+Introduction to Biotechnology and Bioinformatics Theory,IT1,6,AIDS,B,,2025-26
