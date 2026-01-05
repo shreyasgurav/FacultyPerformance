@@ -108,8 +108,8 @@ export async function POST(request: NextRequest) {
         updated++;
       } else {
         // New student - generate IDs
-        const studentId = `stu_${now}_${i}`;
-        const userId = `user_${now}_${i}`;
+      const studentId = `stu_${now}_${i}`;
+      const userId = `user_${now}_${i}`;
 
         // User record (created first)
         newUserRecords.push({
@@ -121,16 +121,16 @@ export async function POST(request: NextRequest) {
 
         // Student record with user_id reference
         newStudentRecords.push({
-          id: studentId,
-          name,
-          email: normalizedEmail,
-          department_id: 'dept1',
-          semester: semesterNum,
-          course: course || 'IT',
-          division,
-          batch: batch || null,
+        id: studentId,
+        name,
+        email: normalizedEmail,
+        department_id: 'dept1',
+        semester: semesterNum,
+        course: course || 'IT',
+        division,
+        batch: batch || null,
           user_id: userId,
-        });
+      });
 
         // Mark as existing for rest of batch
         existingByEmail.set(normalizedEmail, studentId);
@@ -147,15 +147,15 @@ export async function POST(request: NextRequest) {
     if (newUserRecords.length > 0) {
       await prisma.users.createMany({
         data: newUserRecords,
-        skipDuplicates: true,
-      });
+      skipDuplicates: true,
+    });
     }
 
     if (newStudentRecords.length > 0) {
       await prisma.students.createMany({
         data: newStudentRecords,
-        skipDuplicates: true,
-      });
+      skipDuplicates: true,
+    });
     }
 
     return NextResponse.json({
@@ -208,7 +208,7 @@ export async function DELETE(request: NextRequest) {
       });
     }
 
-    // 2. Get emails of students to delete, then delete associated users
+    // 2. Get emails and user_ids of students to delete
     const studentsToDelete = await prisma.students.findMany({
       where: { id: { in: ids } },
       select: { email: true, user_id: true },
@@ -216,7 +216,12 @@ export async function DELETE(request: NextRequest) {
     const emailsToDelete = studentsToDelete.map(s => s.email);
     const userIdsToDelete = studentsToDelete.map(s => s.user_id).filter((id): id is string => id !== null);
 
-    // Delete users by user_id (new FK direction)
+    // 3. Delete student records FIRST (they reference users)
+    const result = await prisma.students.deleteMany({
+      where: { id: { in: ids } },
+    });
+
+    // 4. THEN delete associated users by user_id
     if (userIdsToDelete.length > 0) {
       await prisma.users.deleteMany({
         where: { id: { in: userIdsToDelete } },
@@ -228,11 +233,6 @@ export async function DELETE(request: NextRequest) {
         where: { email: { in: emailsToDelete } },
       });
     }
-
-    // 3. Delete student records
-    const result = await prisma.students.deleteMany({
-      where: { id: { in: ids } },
-    });
 
     return NextResponse.json({
       message: `Deleted ${result.count} student(s)`,

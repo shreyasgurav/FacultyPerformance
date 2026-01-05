@@ -7,7 +7,7 @@ import ProtectedRoute from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
 
 type FormType = 'division' | 'batch';
-type InputMode = 'manual' | 'csv';
+type InputMode = 'csv' | 'timetable';
 
 interface Faculty {
   id: string;
@@ -43,40 +43,26 @@ function getDefaultAcademicYear(): string {
 
 function GenerateFormsContent() {
   const { authFetch } = useAuth();
-  const [inputMode, setInputMode] = useState<InputMode>('manual');
-  const [selectedSemester, setSelectedSemester] = useState('');
-  const [selectedCourse, setSelectedCourse] = useState('');
-  const [selectedDivision, setSelectedDivision] = useState('');
-  const [selectedBatch, setSelectedBatch] = useState('');
-  const [subjectName, setSubjectName] = useState('');
-  const [selectedFacultyId, setSelectedFacultyId] = useState('');
-  const [facultySearch, setFacultySearch] = useState('');
+  const [inputMode, setInputMode] = useState<InputMode>('csv');
   const [academicYear, setAcademicYear] = useState(getDefaultAcademicYear());
   
   // CSV upload state
   const [csvData, setCsvData] = useState<FormEntry[]>([]);
+  const [isParsingCsv, setIsParsingCsv] = useState(false);
   const [csvError, setCsvError] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  const [showFacultyDropdown, setShowFacultyDropdown] = useState(false);
+  // Timetable loading state
+  const [timetableData, setTimetableData] = useState<FormEntry[]>([]);
+  const [isLoadingTimetable, setIsLoadingTimetable] = useState(false);
+  const [timetableError, setTimetableError] = useState('');
+  
   const [facultyList, setFacultyList] = useState<Faculty[]>([]);
   const [generatedForms, setGeneratedForms] = useState<FormEntry[]>([]);
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingFaculty, setIsLoadingFaculty] = useState(true);
-  const facultyDropdownRef = useRef<HTMLDivElement>(null);
-
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (facultyDropdownRef.current && !facultyDropdownRef.current.contains(event.target as Node)) {
-        setShowFacultyDropdown(false);
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
 
   // Fetch faculty list on mount
   useEffect(() => {
@@ -96,103 +82,155 @@ function GenerateFormsContent() {
     fetchFaculty();
   }, [authFetch]);
 
-  const selectedFaculty = facultyList.find(f => f.id === selectedFacultyId);
-
-  const filteredFaculty = facultyList.filter(f => {
-    const search = facultySearch.toLowerCase();
-    return (
-      f.name.toLowerCase().includes(search) ||
-      f.email.toLowerCase().includes(search) ||
-      (f.facultyCode && f.facultyCode.toLowerCase().includes(search))
-  );
-  });
-
-  const handleFacultySelect = (faculty: Faculty) => {
-    setSelectedFacultyId(faculty.id);
-    setFacultySearch(faculty.name);
-    setShowFacultyDropdown(false);
-  };
-
-  const divisions = ['A', 'B', 'C', 'D'];
-  const semesters = [
-    { value: '1', label: 'Semester 1' },
-    { value: '2', label: 'Semester 2' },
-    { value: '3', label: 'Semester 3' },
-    { value: '4', label: 'Semester 4' },
-    { value: '5', label: 'Semester 5' },
-    { value: '6', label: 'Semester 6' },
-    { value: '7', label: 'Semester 7' },
-    { value: '8', label: 'Semester 8' },
-  ];
   const courses = [
     { value: 'IT', label: 'Information Technology' },
     { value: 'AIDS', label: 'AI & Data Science' },
   ];
-  const batches = selectedDivision
-    ? [`${selectedDivision}1`, `${selectedDivision}2`, `${selectedDivision}3`]
-    : [];
 
-  const resetForm = () => {
-    setSubjectName('');
-    setSelectedFacultyId('');
-    setFacultySearch('');
-  };
+  // CSV file handling
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
 
-  const handleDivisionChange = (division: string) => {
-    setSelectedDivision(division);
-    setSelectedBatch('');
-  };
-
-  const canAddForm = () => {
-    if (!selectedSemester || !selectedCourse || !selectedDivision || !subjectName.trim() || !selectedFacultyId) {
-      return false;
-    }
-    return true;
-  };
-
-  const addFormToList = () => {
-    if (!canAddForm()) {
-      setErrorMessage('Please fill all required fields');
-      setTimeout(() => setErrorMessage(''), 3000);
+    if (!file.name.endsWith('.csv')) {
+      setCsvError('Please select a CSV file');
+      setTimeout(() => setCsvError(''), 3000);
       return;
     }
 
-    if (!selectedFaculty) {
-      setErrorMessage('Please select a faculty');
-      setTimeout(() => setErrorMessage(''), 3000);
+    parseCSV(file);
+  };
+
+  const parseCSV = (file: File) => {
+    setIsParsingCsv(true);
+    setCsvError('');
+    setCsvData([]);
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const text = e.target?.result as string;
+        const lines = text.split('\n').filter(line => line.trim());
+        
+        if (lines.length < 2) {
+          setCsvError('CSV file must have a header row and at least one data row');
+          setIsParsingCsv(false);
       return;
     }
 
-    const isLabForm = !!selectedBatch;
-    const actualFormType: FormType = isLabForm ? 'batch' : 'division';
+        const header = lines[0].split(',').map(h => h.trim().toLowerCase());
+        
+        // Required columns - faculty_email column contains faculty codes in timetable exports
+        const subjectIdx = header.findIndex(h => h === 'subject' || h === 'subject_name');
+        const facultyCodeIdx = header.findIndex(h => h === 'faculty_code' || h === 'code' || h === 'faculty_email');
+        const semesterIdx = header.findIndex(h => h === 'semester' || h === 'sem');
+        const courseIdx = header.findIndex(h => h === 'course');
+        const divisionIdx = header.findIndex(h => h === 'division' || h === 'div');
+        const batchIdx = header.findIndex(h => h === 'batch');
+        const academicYearIdx = header.findIndex(h => h === 'academic_year' || h === 'year' || h === 'ay');
 
-    const isDuplicate = generatedForms.some(f =>
-      f.subjectName.toLowerCase() === subjectName.toLowerCase().trim() &&
-      f.facultyEmail.toLowerCase() === selectedFaculty.email.toLowerCase() &&
-      f.division === selectedDivision && f.semester === selectedSemester && f.course === selectedCourse &&
-      (isLabForm ? f.batch === selectedBatch : !f.batch)
-    );
-
-    if (isDuplicate) {
-      setErrorMessage('This form already exists in the list!');
-      setTimeout(() => setErrorMessage(''), 3000);
+        if (subjectIdx === -1 || facultyCodeIdx === -1 || semesterIdx === -1 || courseIdx === -1 || divisionIdx === -1) {
+          setCsvError('Missing required columns: subject, faculty_code (or faculty_email), semester, course, division');
+          setIsParsingCsv(false);
       return;
     }
 
-    const newEntry: FormEntry = {
-      subjectName: subjectName.trim(),
-      facultyName: selectedFaculty.name,
-      facultyEmail: selectedFaculty.email,
-      division: selectedDivision,
-      semester: selectedSemester,
-      course: selectedCourse,
-      formType: actualFormType,
-      academicYear: academicYear,
-      ...(isLabForm && { batch: selectedBatch }),
+        const parsedForms: FormEntry[] = [];
+        const errors: string[] = [];
+
+        for (let i = 1; i < lines.length; i++) {
+          const cols = lines[i].split(',').map(c => c.trim());
+          
+          const subject = cols[subjectIdx];
+          const facultyCode = cols[facultyCodeIdx];
+          const semester = cols[semesterIdx];
+          const course = cols[courseIdx];
+          const division = cols[divisionIdx];
+          const batch = batchIdx !== -1 ? cols[batchIdx] : '';
+          const csvAcademicYear = academicYearIdx !== -1 ? cols[academicYearIdx] : academicYear;
+
+          if (!subject || !facultyCode || !semester || !course || !division) {
+            errors.push(`Row ${i + 1}: Missing required fields`);
+            continue;
+          }
+
+          const faculty = facultyList.find(f => f.facultyCode?.toLowerCase() === facultyCode.toLowerCase());
+          if (!faculty) {
+            errors.push(`Row ${i + 1}: Faculty not found (code: ${facultyCode})`);
+            continue;
+          }
+
+          const isLabForm = !!batch;
+          parsedForms.push({
+            subjectName: subject,
+            facultyName: faculty.name,
+            facultyEmail: faculty.email,
+            division: division,
+            semester: semester,
+            course: course,
+            formType: isLabForm ? 'batch' : 'division',
+            academicYear: csvAcademicYear || academicYear,
+            ...(isLabForm && { batch }),
+          });
+        }
+
+        if (errors.length > 0) {
+          setCsvError(`${errors.length} row(s) skipped: ${errors.slice(0, 3).join('; ')}${errors.length > 3 ? '...' : ''}`);
+          setTimeout(() => setCsvError(''), 5000);
+        }
+
+        if (parsedForms.length > 0) {
+          setCsvData(parsedForms);
+          setSuccessMessage(`Parsed ${parsedForms.length} form(s) from CSV`);
+          setTimeout(() => setSuccessMessage(''), 3000);
+        } else if (errors.length === 0) {
+          setCsvError('No valid entries found in CSV');
+          setTimeout(() => setCsvError(''), 3000);
+        }
+      } catch (error) {
+        console.error('Error parsing CSV:', error);
+        setCsvError('Failed to parse CSV file');
+        setTimeout(() => setCsvError(''), 3000);
+      } finally {
+        setIsParsingCsv(false);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+      }
     };
 
-    setGeneratedForms([...generatedForms, newEntry]);
-    resetForm();
+    reader.onerror = () => {
+      setCsvError('Failed to read file');
+      setIsParsingCsv(false);
+    };
+
+    reader.readAsText(file);
+  };
+
+  const addCsvToForms = () => {
+    if (csvData.length === 0) return;
+
+    const newForms = csvData.filter(form => {
+      return !generatedForms.some(f =>
+        f.subjectName.toLowerCase() === form.subjectName.toLowerCase() &&
+        f.facultyEmail.toLowerCase() === form.facultyEmail.toLowerCase() &&
+        f.division === form.division &&
+        f.semester === form.semester &&
+        f.course === form.course &&
+        f.batch === form.batch
+      );
+    });
+
+    if (newForms.length > 0) {
+      setGeneratedForms([...generatedForms, ...newForms]);
+      setSuccessMessage(`Added ${newForms.length} form(s) to the list`);
+      setTimeout(() => setSuccessMessage(''), 3000);
+    } else {
+      setErrorMessage('All forms from CSV already exist in the list');
+      setTimeout(() => setErrorMessage(''), 3000);
+    }
+
+    setCsvData([]);
   };
 
   const removeFormFromList = (index: number) => {
@@ -229,125 +267,80 @@ function GenerateFormsContent() {
 
   const getCourseName = (code: string) => courses.find(c => c.value === code)?.label || code;
 
-  // Parse CSV text (from file upload or Google Sheet) into FormEntry[] using the same rules
-  const parseCsvText = (text: string, source: 'csv' | 'sheet' = 'csv') => {
-    const stripQuotes = (value: string) => value.replace(/^"|"$/g, '').trim();
+  // Load forms from timetable database
+  const loadFromTimetable = async () => {
+    setIsLoadingTimetable(true);
+    setTimetableError('');
+    setTimetableData([]);
 
-    const lines = text.split('\n').filter(line => line.trim());
-    if (lines.length < 2) {
-      setCsvError('CSV must have a header row and at least one data row');
-      setTimeout(() => setCsvError(''), 3000);
-      return;
-    }
-
-    const header = lines[0]
-      .split(',')
-      .map(h => stripQuotes(h).toLowerCase());
-        const requiredFields = ['subject', 'faculty_email', 'semester', 'course', 'division'];
-        const missingFields = requiredFields.filter(f => !header.includes(f));
+      try {
+      const res = await authFetch(`/api/admin/timetable?academic_year=${encodeURIComponent(academicYear)}`);
         
-        if (missingFields.length > 0) {
-          setCsvError(`Missing required columns: ${missingFields.join(', ')}`);
-          setTimeout(() => setCsvError(''), 5000);
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to load timetable');
+      }
+
+      const entries = await res.json();
+        
+      if (entries.length === 0) {
+        setTimetableError(`No timetable entries found for ${academicYear}`);
+        setTimeout(() => setTimetableError(''), 5000);
           return;
         }
 
-        const subjectIdx = header.indexOf('subject');
-        const emailIdx = header.indexOf('faculty_email');
-        const semesterIdx = header.indexOf('semester');
-        const courseIdx = header.indexOf('course');
-        const divisionIdx = header.indexOf('division');
-        const batchIdx = header.indexOf('batch');
-        const yearIdx = header.indexOf('academic_year');
-
+      // Map timetable entries to form entries
         const parsedForms: FormEntry[] = [];
         const errors: string[] = [];
 
-        for (let i = 1; i < lines.length; i++) {
-      const rawValues = lines[i].split(',');
-          
-      const subject = stripQuotes(rawValues[subjectIdx] ?? '');
-      const email = stripQuotes(rawValues[emailIdx] ?? '');
-      const semester = stripQuotes(rawValues[semesterIdx] ?? '');
-      const course = stripQuotes(rawValues[courseIdx] ?? '');
-      const division = stripQuotes(rawValues[divisionIdx] ?? '');
-      const batch = batchIdx >= 0 ? stripQuotes(rawValues[batchIdx] ?? '') : '';
-      const year = yearIdx >= 0 ? stripQuotes(rawValues[yearIdx] ?? '') : academicYear;
-
-          if (!subject || !email || !semester || !course || !division) {
-            errors.push(`Row ${i + 1}: Missing required fields`);
-            continue;
-          }
-
-          const faculty = facultyList.find(f => f.email.toLowerCase() === email.toLowerCase());
+      for (const entry of entries) {
+        const faculty = facultyList.find(f => f.email.toLowerCase() === entry.facultyEmail.toLowerCase());
+        
           if (!faculty) {
-            errors.push(`Row ${i + 1}: Faculty not found for email ${email}`);
+          errors.push(`Faculty not found: ${entry.facultyEmail}`);
             continue;
           }
 
           parsedForms.push({
-            subjectName: subject,
+          subjectName: entry.subjectName,
             facultyName: faculty.name,
             facultyEmail: faculty.email,
-            division: division.toUpperCase(),
-            semester: semester,
-            course: course.toUpperCase(),
-            formType: batch ? 'batch' : 'division',
-            academicYear: year || academicYear,
-            ...(batch && { batch: batch.toUpperCase() }),
+          division: entry.division,
+          semester: entry.semester.toString(),
+          course: entry.course,
+          formType: entry.batch ? 'batch' : 'division',
+          academicYear: entry.academicYear,
+          ...(entry.batch && { batch: entry.batch }),
           });
         }
 
         if (errors.length > 0) {
-          setCsvError(`${errors.length} row(s) skipped: ${errors.slice(0, 3).join('; ')}${errors.length > 3 ? '...' : ''}`);
-          setTimeout(() => setCsvError(''), 5000);
+        setTimetableError(`${errors.length} entry(s) skipped: ${errors.slice(0, 3).join('; ')}${errors.length > 3 ? '...' : ''}`);
+        setTimeout(() => setTimetableError(''), 5000);
         }
 
         if (parsedForms.length > 0) {
-          setCsvData(parsedForms);
-      const label = source === 'csv' ? 'CSV' : 'Google Sheet';
-      const totalRows = lines.length - 1; // exclude header
-      setSuccessMessage(`Parsed ${parsedForms.length} form(s) out of ${totalRows} row(s) from ${label}`);
+        setTimetableData(parsedForms);
+        setSuccessMessage(`Loaded ${parsedForms.length} form(s) from timetable`);
           setTimeout(() => setSuccessMessage(''), 3000);
-    } else if (errors.length === 0) {
-      setCsvError('No valid rows found in CSV');
-      setTimeout(() => setCsvError(''), 3000);
-    }
-  };
-
-  // Handle CSV file upload
-  const handleCsvUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    if (!file.name.toLowerCase().endsWith('.csv')) {
-      setCsvError('Please upload a CSV file');
-      setTimeout(() => setCsvError(''), 3000);
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const text = e.target?.result as string;
-        parseCsvText(text, 'csv');
-      } catch {
-        setCsvError('Failed to parse CSV file');
-        setTimeout(() => setCsvError(''), 3000);
+      } else if (errors.length === 0) {
+        setTimetableError('No valid entries found in timetable');
+        setTimeout(() => setTimetableError(''), 3000);
       }
-    };
-    reader.readAsText(file);
-
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
+    } catch (error) {
+      console.error('Error loading timetable:', error);
+      setTimetableError(error instanceof Error ? error.message : 'Failed to load timetable');
+      setTimeout(() => setTimetableError(''), 5000);
+    } finally {
+      setIsLoadingTimetable(false);
     }
   };
 
-  // Import from public Google Sheet via backend proxy
-  const addCsvToForms = () => {
-    if (csvData.length === 0) return;
+  // Add timetable data to forms list
+  const addTimetableToForms = () => {
+    if (timetableData.length === 0) return;
 
-    const newForms = csvData.filter(form => {
+    const newForms = timetableData.filter(form => {
       return !generatedForms.some(f =>
         f.subjectName.toLowerCase() === form.subjectName.toLowerCase() &&
         f.facultyEmail.toLowerCase() === form.facultyEmail.toLowerCase() &&
@@ -363,11 +356,11 @@ function GenerateFormsContent() {
       setSuccessMessage(`Added ${newForms.length} form(s) to the list`);
       setTimeout(() => setSuccessMessage(''), 3000);
     } else {
-      setErrorMessage('All forms from CSV already exist in the list');
+      setErrorMessage('All forms from timetable already exist in the list');
       setTimeout(() => setErrorMessage(''), 3000);
     }
 
-    setCsvData([]);
+    setTimetableData([]);
   };
 
   return (
@@ -413,17 +406,7 @@ function GenerateFormsContent() {
       <div className="bg-white rounded-xl sm:rounded-2xl border border-gray-100 p-3 sm:p-4 mb-4 sm:mb-6">
         <div className="flex gap-2">
           <button
-            onClick={() => { setInputMode('manual'); setCsvData([]); }}
-            className={`flex-1 py-2 sm:py-2.5 px-3 sm:px-4 rounded-lg text-xs sm:text-sm font-medium transition-colors ${
-              inputMode === 'manual'
-                ? 'bg-gray-900 text-white'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-            }`}
-          >
-            Manual Entry
-          </button>
-          <button
-            onClick={() => setInputMode('csv')}
+            onClick={() => { setInputMode('csv'); setTimetableData([]); }}
             className={`flex-1 py-2 sm:py-2.5 px-3 sm:px-4 rounded-lg text-xs sm:text-sm font-medium transition-colors ${
               inputMode === 'csv'
                 ? 'bg-gray-900 text-white'
@@ -432,15 +415,118 @@ function GenerateFormsContent() {
           >
             Upload CSV
           </button>
+          <button
+            onClick={() => { setInputMode('timetable'); setCsvData([]); }}
+            className={`flex-1 py-2 sm:py-2.5 px-3 sm:px-4 rounded-lg text-xs sm:text-sm font-medium transition-colors ${
+              inputMode === 'timetable'
+                ? 'bg-gray-900 text-white'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}
+          >
+            Load from Timetable
+          </button>
         </div>
       </div>
 
-      {inputMode === 'csv' ? (
+      {inputMode === 'timetable' ? (
+        /* Timetable Load Mode */
+        <div className="bg-white rounded-xl sm:rounded-2xl border border-gray-100 p-4 sm:p-6 mb-4 sm:mb-6">
+          <h2 className="text-xs sm:text-sm font-semibold text-gray-900 mb-1.5 sm:mb-2">Load from Timetable</h2>
+          <p className="text-xs text-gray-500 mb-3 sm:mb-4">
+            Load faculty-subject mappings from the timetable database for the selected academic year.
+          </p>
+
+          {timetableError && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+              {timetableError}
+            </div>
+          )}
+
+          {/* Academic Year Selection */}
+          <div className="mb-4">
+            <label className="block text-xs font-medium text-gray-700 mb-1.5">Academic Year</label>
+            <select
+              value={academicYear}
+              onChange={(e) => setAcademicYear(e.target.value)}
+              className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition-colors"
+            >
+              <option value="2025-26">2025-26</option>
+              <option value="2024-25">2024-25</option>
+              <option value="2023-24">2023-24</option>
+            </select>
+          </div>
+
+          {/* Load Button */}
+          <button
+            onClick={loadFromTimetable}
+            disabled={isLoadingTimetable || isLoadingFaculty}
+            className={`w-full py-3 px-4 rounded-xl text-sm font-medium flex items-center justify-center gap-2 transition-all ${
+              isLoadingTimetable || isLoadingFaculty
+                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                : 'bg-blue-600 text-white hover:bg-blue-700 active:scale-[0.98]'
+            }`}
+          >
+            {isLoadingTimetable ? (
+              <>
+                <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Loading...
+              </>
+            ) : (
+              <>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                </svg>
+                Load Timetable
+              </>
+            )}
+          </button>
+
+          {/* Timetable Preview */}
+          {timetableData.length > 0 && (
+            <div className="space-y-4 mt-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-medium text-gray-900">
+                  Loaded {timetableData.length} form(s)
+                </h3>
+                <button
+                  onClick={() => setTimetableData([])}
+                  className="text-xs text-red-600 hover:text-red-700"
+                >
+                  Clear
+                </button>
+              </div>
+              
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {timetableData.map((form, idx) => (
+                  <div key={idx} className="p-3 bg-gray-50 rounded-lg">
+                    <div className="text-sm font-medium text-gray-900">{form.subjectName}</div>
+                    <div className="text-xs text-gray-500 mt-0.5">
+                      {form.facultyName} • Sem {form.semester} • {form.course} • Div {form.division}
+                      {form.batch && ` / ${form.batch}`}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <button
+                onClick={addTimetableToForms}
+                className="w-full py-2.5 px-4 rounded-lg text-sm font-medium flex items-center justify-center gap-2 bg-green-600 text-white hover:bg-green-700 active:scale-[0.98] transition-all"
+              >
+                <PlusIcon className="w-4 h-4" />
+                Add All to Forms List
+              </button>
+            </div>
+          )}
+        </div>
+      ) : (
         /* CSV Upload Mode */
         <div className="bg-white rounded-xl sm:rounded-2xl border border-gray-100 p-4 sm:p-6 mb-4 sm:mb-6">
           <h2 className="text-xs sm:text-sm font-semibold text-gray-900 mb-1.5 sm:mb-2">Upload CSV File</h2>
           <p className="text-xs text-gray-500 mb-3 sm:mb-4">
-            Upload your CSV file using the template headers expected by the parser.
+            Upload a CSV file with columns: subject, faculty_email, semester, course, division, batch (optional), academic_year (optional)
           </p>
 
           {csvError && (
@@ -449,36 +535,46 @@ function GenerateFormsContent() {
             </div>
           )}
 
-          <div className="mb-4">
+          {/* File Upload */}
             <input
               ref={fileInputRef}
               type="file"
               accept=".csv"
-              onChange={handleCsvUpload}
+            onChange={handleFileSelect}
               className="hidden"
               id="csv-upload"
-              disabled={isLoadingFaculty}
             />
             <label
               htmlFor="csv-upload"
-              className={`flex items-center justify-center gap-2 w-full py-3 px-4 border-2 border-dashed rounded-xl transition-colors ${
-                isLoadingFaculty
-                  ? 'border-gray-200 bg-gray-50 cursor-not-allowed opacity-60'
-                  : 'border-gray-300 hover:border-blue-400 hover:bg-blue-50 cursor-pointer'
-              }`}
-            >
-              <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            className={`w-full py-3 px-4 rounded-xl text-sm font-medium flex items-center justify-center gap-2 transition-all cursor-pointer border-2 border-dashed ${
+              isParsingCsv || isLoadingFaculty
+                ? 'bg-gray-50 text-gray-400 border-gray-200 cursor-not-allowed'
+                : 'bg-gray-50 text-gray-600 border-gray-300 hover:border-blue-400 hover:bg-blue-50 hover:text-blue-600'
+            }`}
+          >
+            {isParsingCsv ? (
+              <>
+                <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Parsing...
+              </>
+            ) : isLoadingFaculty ? (
+              'Loading faculty...'
+            ) : (
+              <>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
               </svg>
-              <span className="text-sm text-gray-600">
-                {isLoadingFaculty ? 'Loading faculty list...' : 'Click to upload CSV file'}
-              </span>
+                Choose CSV File
+              </>
+            )}
             </label>
-          </div>
 
           {/* CSV Preview */}
           {csvData.length > 0 && (
-            <div className="space-y-4">
+            <div className="space-y-4 mt-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-medium text-gray-900">
                   Parsed {csvData.length} form(s)
@@ -505,182 +601,13 @@ function GenerateFormsContent() {
 
               <button
                 onClick={addCsvToForms}
-                className="w-full py-2.5 px-4 rounded-lg text-sm font-medium flex items-center justify-center gap-2 bg-blue-600 text-white hover:bg-blue-700 active:scale-[0.98] transition-all"
+                className="w-full py-2.5 px-4 rounded-lg text-sm font-medium flex items-center justify-center gap-2 bg-green-600 text-white hover:bg-green-700 active:scale-[0.98] transition-all"
               >
                 <PlusIcon className="w-4 h-4" />
                 Add All to Forms List
               </button>
             </div>
           )}
-
-          {/* Sample CSV Download removed per request */}
-        </div>
-      ) : (
-        /* Manual Entry Mode */
-        <div className="bg-white rounded-xl sm:rounded-2xl border border-gray-100 p-4 sm:p-6 mb-4 sm:mb-6">
-          <div className="space-y-3 sm:space-y-4">
-            {/* Row 1: Semester & Course */}
-            <div className="grid grid-cols-2 gap-2 sm:gap-3">
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1.5">Semester</label>
-                <select
-                  value={selectedSemester}
-                  onChange={(e) => setSelectedSemester(e.target.value)}
-                  className="w-full px-2 sm:px-3 py-2 sm:py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition-colors"
-                >
-                  <option value="">Select</option>
-                  {semesters.map(s => (
-                    <option key={s.value} value={s.value}>Sem {s.value}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1.5">Course</label>
-                <select
-                  value={selectedCourse}
-                  onChange={(e) => setSelectedCourse(e.target.value)}
-                  className="w-full px-2 sm:px-3 py-2 sm:py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition-colors"
-                >
-                  <option value="">Select</option>
-                  {courses.map(c => (
-                    <option key={c.value} value={c.value}>{c.value}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            {/* Row 2: Division & Batch */}
-            <div className="grid grid-cols-2 gap-2 sm:gap-3">
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1.5">Division</label>
-                <select
-                  value={selectedDivision}
-                  onChange={(e) => handleDivisionChange(e.target.value)}
-                  className="w-full px-2 sm:px-3 py-2 sm:py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition-colors"
-                >
-                  <option value="">Select</option>
-                  {divisions.map(div => (
-                    <option key={div} value={div}>{div}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1.5">
-                  <span className="sm:hidden">Batch</span>
-                  <span className="hidden sm:inline">Batch <span className="text-gray-400 font-normal">(for lab)</span></span>
-                </label>
-                <select
-                  value={selectedBatch}
-                  onChange={(e) => setSelectedBatch(e.target.value)}
-                  disabled={!selectedDivision}
-                  className="w-full px-2 sm:px-3 py-2 sm:py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition-colors disabled:opacity-50"
-                >
-                  <option value="">None</option>
-                  {batches.map(batch => (
-                    <option key={batch} value={batch}>{batch}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            {/* Row 3: Academic Year */}
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1.5">Academic Year</label>
-                <input
-                  type="text"
-                  value={academicYear}
-                  onChange={(e) => setAcademicYear(e.target.value)}
-                  placeholder="e.g., 2025-26"
-                className="w-full px-2 sm:px-3 py-2 sm:py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition-colors"
-                />
-            </div>
-
-            {/* Subject Name */}
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1.5">Subject Name</label>
-              <input
-                type="text"
-                value={subjectName}
-                onChange={(e) => setSubjectName(e.target.value)}
-                placeholder="e.g., Machine Learning"
-                className="w-full px-2 sm:px-3 py-2 sm:py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition-colors"
-              />
-            </div>
-
-            {/* Faculty Search */}
-            <div className="relative" ref={facultyDropdownRef}>
-              <label className="block text-xs font-medium text-gray-700 mb-1.5">Faculty</label>
-              <input
-                type="text"
-                value={facultySearch}
-                onChange={(e) => {
-                  setFacultySearch(e.target.value);
-                  setSelectedFacultyId('');
-                  setShowFacultyDropdown(true);
-                }}
-                onFocus={() => setShowFacultyDropdown(true)}
-                disabled={isLoadingFaculty}
-                placeholder={isLoadingFaculty ? 'Loading...' : 'Search faculty by name...'}
-                className="w-full px-2 sm:px-3 py-2 sm:py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition-colors disabled:opacity-50"
-              />
-              {showFacultyDropdown && !isLoadingFaculty && (
-                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                  {filteredFaculty.length === 0 ? (
-                    <div className="px-3 py-2 text-sm text-gray-400">No faculty found</div>
-                  ) : (
-                    filteredFaculty.map(f => (
-                      <button
-                        key={f.id}
-                        type="button"
-                        onClick={() => handleFacultySelect(f)}
-                        className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 transition-colors ${
-                          selectedFacultyId === f.id ? 'bg-blue-50 text-blue-700' : 'text-gray-700'
-                        }`}
-                      >
-                        <div className="font-medium">{f.name}</div>
-                        <div className="text-xs text-gray-400">{f.email}</div>
-                      </button>
-                    ))
-                  )}
-                </div>
-              )}
-              {selectedFaculty && (
-                <p className="text-xs text-green-600 mt-1">✓ {selectedFaculty.email}</p>
-              )}
-            </div>
-
-            {/* Form Type Indicator */}
-            {selectedDivision && (
-              <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg">
-                <span className={`text-xs px-2 py-1 rounded font-medium ${
-                  selectedBatch 
-                    ? 'bg-purple-100 text-purple-700' 
-                    : 'bg-green-100 text-green-700'
-                }`}>
-                  {selectedBatch ? 'Lab Form' : 'Theory Form'}
-                </span>
-                <span className="text-xs text-gray-500">
-                  {selectedBatch 
-                    ? `Will create lab feedback form for Batch ${selectedBatch}` 
-                    : `Will create theory feedback form for Division ${selectedDivision}`}
-                </span>
-              </div>
-            )}
-
-            {/* Add Button */}
-            <button
-              onClick={addFormToList}
-              disabled={!canAddForm()}
-              className={`w-full py-2.5 px-4 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-all ${
-                canAddForm()
-                  ? 'bg-blue-600 text-white hover:bg-blue-700 active:scale-[0.98]'
-                  : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-              }`}
-            >
-              <PlusIcon className="w-4 h-4" />
-              Add to List
-            </button>
-          </div>
         </div>
       )}
 

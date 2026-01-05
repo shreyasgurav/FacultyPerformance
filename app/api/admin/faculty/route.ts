@@ -152,22 +152,26 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Faculty not found' }, { status: 404 });
     }
 
-    // Delete associated user record first (if linked)
-    if (faculty.user_id) {
+    // Store user_id before deleting faculty
+    const userIdToDelete = faculty.user_id;
+    const emailToDelete = faculty.email;
+
+    // Delete faculty record FIRST (removes FK reference to user)
+    await prisma.faculty.delete({
+      where: { id },
+    });
+
+    // THEN delete the associated user record
+    if (userIdToDelete) {
       await prisma.users.delete({
-        where: { id: faculty.user_id },
+        where: { id: userIdToDelete },
       }).catch(() => {
         // Ignore if user doesn't exist
       });
     }
     // Also delete by email as fallback for old data
     await prisma.users.deleteMany({
-      where: { email: faculty.email },
-    });
-
-    // Delete faculty record
-    await prisma.faculty.delete({
-      where: { id },
+      where: { email: emailToDelete },
     });
 
     return NextResponse.json({ success: true });

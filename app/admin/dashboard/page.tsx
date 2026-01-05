@@ -79,10 +79,10 @@ function AdminDashboardContent() {
             >
               {/* Top section: Icon (left) and Arrow (right) */}
               <div className="flex items-start justify-between mb-auto">
-                <div
+              <div
                   className={`w-12 h-12 sm:w-14 sm:h-14 rounded-lg sm:rounded-xl flex items-center justify-center ${card.bgColor} ${card.textColor} group-hover:scale-110 transition-transform duration-200`}
-                >
-                  {card.icon}
+              >
+                {card.icon}
                 </div>
                 <svg 
                   className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 group-hover:text-gray-600 group-hover:translate-x-1 transition-all duration-200" 

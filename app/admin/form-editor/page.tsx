@@ -252,27 +252,27 @@ function FormEditorContent() {
         >
           <ArrowLeftIcon className="w-5 h-5" />
         </Link>
-        <div>
+          <div>
           <div className="flex items-start justify-between gap-3 mb-1">
             <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Form Editor</h1>
             <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
-              <button
-                onClick={() => setShowResetConfirm(true)}
+            <button
+              onClick={() => setShowResetConfirm(true)}
                 className="p-1.5 sm:p-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors"
                 title="Reset to Default"
-              >
+            >
                 <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-              </button>
-              <button
-                onClick={() => setShowAddModal(true)}
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+            </button>
+            <button
+              onClick={() => setShowAddModal(true)}
                 className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 bg-gray-900 text-white rounded-lg text-xs sm:text-sm font-medium hover:bg-gray-800 transition-colors"
-              >
+            >
                 <PlusIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 <span className="hidden sm:inline">Add Question</span>
                 <span className="sm:hidden">Add</span>
-              </button>
+            </button>
             </div>
           </div>
           <p className="text-xs sm:text-sm text-gray-500">Customize feedback form questions</p>
@@ -326,35 +326,35 @@ function FormEditorContent() {
             {filteredParams.map((param, index) => (
               <div key={param.id} className="p-3 sm:p-4 hover:bg-gray-50/50 transition-colors">
                 <div className="flex items-start gap-2 sm:gap-3">
-                  {/* Position Number */}
+                    {/* Position Number */}
                   <span className="w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center bg-gray-100 rounded-full text-[10px] sm:text-xs font-medium text-gray-500 mt-0.5 flex-shrink-0">
-                    {index + 1}
-                  </span>
+                      {index + 1}
+                    </span>
 
-                  {/* Question Content */}
-                  <div className="flex-1 min-w-0">
+                    {/* Question Content */}
+                    <div className="flex-1 min-w-0">
                     <p className="text-xs sm:text-sm text-gray-900 leading-relaxed">{param.text}</p>
                     <p className="text-[10px] sm:text-xs text-gray-400 mt-0.5 sm:mt-1">{getQuestionTypeLabel(param.question_type)}</p>
-                  </div>
+                    </div>
 
-                  {/* Actions */}
+                    {/* Actions */}
                   <div className="flex items-center gap-0.5 sm:gap-1 flex-shrink-0">
-                    <button
+                      <button
                       onClick={() => handleOpenEdit(param)}
                       className="p-1.5 sm:p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                      title="Edit"
-                    >
+                        title="Edit"
+                      >
                       <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                      </svg>
-                    </button>
-                    <button
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                      </button>
+                          <button
                       onClick={() => handleOpenDelete(param)}
                       className="p-1.5 sm:p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                      title="Delete"
-                    >
+                          title="Delete"
+                        >
                       <TrashIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                    </button>
+                        </button>
                   </div>
                 </div>
               </div>
@@ -391,28 +391,28 @@ function FormEditorContent() {
               <div className="space-y-3 sm:space-y-4">
                 <div>
                   <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Question Text</label>
-                  <textarea
-                    value={newQuestion.text}
-                    onChange={(e) => setNewQuestion(prev => ({ ...prev, text: e.target.value }))}
-                    placeholder="Enter your question..."
+                <textarea
+                  value={newQuestion.text}
+                  onChange={(e) => setNewQuestion(prev => ({ ...prev, text: e.target.value }))}
+                  placeholder="Enter your question..."
                     className="w-full px-3 py-2 sm:py-2.5 text-sm border border-gray-200 rounded-lg focus:ring-1 focus:ring-gray-300 focus:border-gray-300 outline-none resize-none"
-                    rows={3}
-                    autoFocus
-                  />
-                </div>
+                  rows={3}
+                  autoFocus
+                />
+              </div>
 
-                <div>
+              <div>
                   <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Response Type</label>
-                  <select
-                    value={newQuestion.question_type}
-                    onChange={(e) => setNewQuestion(prev => ({ ...prev, question_type: e.target.value }))}
+                <select
+                  value={newQuestion.question_type}
+                  onChange={(e) => setNewQuestion(prev => ({ ...prev, question_type: e.target.value }))}
                     className="w-full px-3 py-2 sm:py-2.5 text-sm border border-gray-200 rounded-lg focus:ring-1 focus:ring-gray-300 focus:border-gray-300 outline-none"
-                  >
-                    {QUESTION_TYPES.map(type => (
-                      <option key={type.value} value={type.value}>{type.label}</option>
-                    ))}
-                  </select>
-                </div>
+                >
+                  {QUESTION_TYPES.map(type => (
+                    <option key={type.value} value={type.value}>{type.label}</option>
+                  ))}
+                </select>
+              </div>
 
                 <div className="p-3 bg-gray-50 rounded-lg border border-gray-100">
                   <div className="flex items-center gap-2">
@@ -602,16 +602,16 @@ function FormEditorContent() {
             <div className="px-4 sm:px-6 py-4 sm:py-5">
               <div className="flex items-center gap-3 mb-3">
                 <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center flex-shrink-0">
-                  <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                  </svg>
-                </div>
-                <h3 className="text-base sm:text-lg font-semibold text-gray-900">Reset to Default</h3>
+                <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
               </div>
-              
+                <h3 className="text-base sm:text-lg font-semibold text-gray-900">Reset to Default</h3>
+            </div>
+            
               <p className="text-xs sm:text-sm text-gray-600">
-                This will delete all current questions and restore the original default questions for both Theory and Lab forms. This action cannot be undone.
-              </p>
+              This will delete all current questions and restore the original default questions for both Theory and Lab forms. This action cannot be undone.
+            </p>
             </div>
 
             {/* Modal Footer */}

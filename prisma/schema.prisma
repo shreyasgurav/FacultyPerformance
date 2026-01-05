@@ -155,3 +155,20 @@ model admin_users {
   name       String?   @db.VarChar(100)
   created_at DateTime? @default(now()) @db.Timestamp(0)
 }
+
+// Timetable - stores faculty-subject-class mappings for generating forms
+model timetable {
+  id            BigInt    @id @default(autoincrement())
+  subject_name  String    @db.VarChar(150)
+  faculty_email String    @db.VarChar(150)
+  semester      Int       @db.TinyInt
+  course        String    @db.VarChar(50)
+  division      String    @db.VarChar(10)
+  batch         String?   @db.VarChar(10)  // NULL for theory subjects
+  academic_year String    @db.VarChar(10)
+  created_at    DateTime? @default(now()) @db.Timestamp(0)
+
+  @@index([semester, course, division], map: "idx_timetable_class")
+  @@index([faculty_email], map: "idx_timetable_faculty")
+  @@index([academic_year], map: "idx_timetable_year")
+}

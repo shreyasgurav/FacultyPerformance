@@ -305,16 +305,16 @@ function ReportContent() {
                   <div key={i}>
                     <div className="h-3 sm:h-4 bg-gray-100 rounded w-full mb-2"></div>
                     <div className="h-2 bg-gray-100 rounded-full"></div>
-                  </div>
-                ))}
               </div>
-            </div>
+            ))}
+          </div>
+                </div>
             <div className="bg-white rounded-xl sm:rounded-2xl border border-gray-100 p-4 sm:p-6">
               <div className="h-5 bg-gray-200 rounded w-32 sm:w-40 mb-4"></div>
               <div className="space-y-3">
                 {[...Array(3)].map((_, i) => (
                   <div key={i} className="h-16 sm:h-20 bg-gray-100 rounded-lg"></div>
-                ))}
+              ))}
               </div>
             </div>
           </div>
