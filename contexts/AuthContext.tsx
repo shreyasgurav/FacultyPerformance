@@ -7,7 +7,7 @@ import {
   signOut as firebaseSignOut,
   onAuthStateChanged
 } from 'firebase/auth';
-import { auth, googleProvider } from '@/lib/firebase';
+import { getAuthInstance, getGoogleProviderInstance } from '@/lib/firebase';
 
 interface UserRole {
   role: 'student' | 'faculty' | 'admin' | null;
@@ -49,7 +49,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+    const authInstance = getAuthInstance();
+    if (!authInstance) return;
+    
+    const unsubscribe = onAuthStateChanged(authInstance, async (firebaseUser) => {
       setUser(firebaseUser);
       
       if (firebaseUser?.email) {
@@ -67,8 +70,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signInWithGoogle = async () => {
     try {
+      const authInstance = getAuthInstance();
+      const providerInstance = getGoogleProviderInstance();
+      if (!authInstance || !providerInstance) {
+        throw new Error('Firebase is not initialized');
+      }
+      
       setLoading(true);
-      const result = await signInWithPopup(auth, googleProvider);
+      const result = await signInWithPopup(authInstance, providerInstance);
       if (result.user?.email) {
         const role = await fetchUserRole(result.user.email);
         setUserRole(role);
@@ -83,7 +92,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = async () => {
     try {
-      await firebaseSignOut(auth);
+      const authInstance = getAuthInstance();
+      if (!authInstance) {
+        throw new Error('Firebase is not initialized');
+      }
+      await firebaseSignOut(authInstance);
       setUser(null);
       setUserRole(null);
     } catch (error) {
