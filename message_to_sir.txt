@@ -1,0 +1,12 @@
+Yes sir, you need to create a database server for Faculty Performance in the college database, and run the schema.sql file to generate all the required tables there.
+
+After that, we will need the database connection details to connect the application to the database server:
+- Database host/URL
+- Database name
+- Username
+- Password
+- Port
+
+This is the GitHub repository of the application:
+https://github.com/shreyasgurav/FacultyPerformance
+
