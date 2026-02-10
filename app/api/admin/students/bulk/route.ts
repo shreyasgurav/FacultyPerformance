@@ -39,6 +39,8 @@ export async function POST(request: NextRequest) {
       course: string;
       division: string;
       batch: string | null;
+      honours_course: string | null;
+      honours_batch: string | null;
       user_id: string;
     }> = [];
 
@@ -53,7 +55,7 @@ export async function POST(request: NextRequest) {
     const processedEmails = new Set<string>();
 
     for (let i = 0; i < students.length; i++) {
-      const { name, email, semester, course, division, batch } = students[i];
+      const { name, email, semester, course, division, batch, honours_course, honours_batch } = students[i];
 
       if (!name || !email || !semester || !division) {
         errors.push(`Row ${i + 1}: Missing required fields`);
@@ -100,6 +102,8 @@ export async function POST(request: NextRequest) {
                 course: course || 'IT',
                 division,
                 batch: batch || null,
+                honours_course: honours_course || null,
+                honours_batch: honours_batch || null,
                 user_id: user.id,
               },
             });
@@ -129,6 +133,8 @@ export async function POST(request: NextRequest) {
         course: course || 'IT',
         division,
         batch: batch || null,
+          honours_course: honours_course || null,
+          honours_batch: honours_batch || null,
           user_id: userId,
       });
 

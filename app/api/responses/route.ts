@@ -97,16 +97,22 @@ export async function POST(request: NextRequest) {
         throw new Error('FORM_NOT_FOUND');
       }
 
-      // Check if student is authorized to submit this form
-      // Compare semesters directly (both are now integers)
-      const isAuthorized = 
+      // Check if student is authorized to submit this form - regular course OR honours course
+      const isRegularAuthorized = 
         form.semester === student.semester &&
         form.course === student.course &&
         form.division === student.division &&
         form.status === 'active' &&
         (!form.batch || form.batch === student.batch);
 
-      if (!isAuthorized) {
+      const isHonoursAuthorized =
+        !!student.honours_course &&
+        form.semester === student.semester &&
+        form.course === student.honours_course &&
+        form.status === 'active' &&
+        (!form.batch || form.batch === (student.honours_batch || ''));
+
+      if (!isRegularAuthorized && !isHonoursAuthorized) {
         throw new Error('NOT_AUTHORIZED');
       }
 

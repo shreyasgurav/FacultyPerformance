@@ -33,6 +33,8 @@ CREATE TABLE `students` (
     `course` VARCHAR(50) NOT NULL DEFAULT 'IT',
     `division` VARCHAR(10) NOT NULL,
     `batch` VARCHAR(10) NULL,
+    `honours_course` VARCHAR(50) NULL,
+    `honours_batch` VARCHAR(10) NULL,
     `user_id` VARCHAR(50) NULL,
     UNIQUE INDEX `email`(`email`),
     INDEX `department_id`(`department_id`),
@@ -147,11 +149,24 @@ CREATE TABLE `timetable` (
     `course` VARCHAR(50) NOT NULL,
     `division` VARCHAR(10) NOT NULL,
     `batch` VARCHAR(10) NULL,
+    `honours_course` VARCHAR(50) NULL,
+    `honours_batch` VARCHAR(10) NULL,
     `academic_year` VARCHAR(10) NOT NULL,
     `created_at` TIMESTAMP(0) NULL DEFAULT CURRENT_TIMESTAMP(0),
     INDEX `idx_timetable_class`(`semester`, `course`, `division`),
     INDEX `idx_timetable_faculty`(`faculty_email`),
     INDEX `idx_timetable_year`(`academic_year`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- draft_feedback table (saves student progress while filling forms)
+CREATE TABLE `draft_feedback` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT,
+    `student_id` VARCHAR(50) NOT NULL,
+    `form_data` TEXT NOT NULL,
+    `updated_at` TIMESTAMP(0) NULL DEFAULT CURRENT_TIMESTAMP(0),
+    UNIQUE INDEX `draft_feedback_student_id_key`(`student_id`),
+    INDEX `idx_draft_student`(`student_id`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 

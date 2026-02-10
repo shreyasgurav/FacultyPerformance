@@ -164,10 +164,14 @@ export async function POST(request: NextRequest) {
     // Process all forms in memory (no DB calls yet)
     for (let i = 0; i < forms.length; i++) {
       const form = forms[i];
-      const { subjectName, subjectCode, facultyName, facultyEmail, division, batch, semester, course, academicYear } = form;
+      const { subjectName, subjectCode, facultyName, facultyEmail, division, batch, semester, course, academicYear, isHonours } = form;
 
-      if (!subjectName || !facultyName || !facultyEmail || !division || !semester) {
+      // Honours forms don't need division; regular forms do
+      if (!subjectName || !facultyName || !facultyEmail || !semester) {
         continue; // Skip invalid entries
+      }
+      if (!isHonours && !division) {
+        continue; // Regular forms need division
       }
 
       const semesterNum = parseInt(semester, 10);
@@ -187,7 +191,7 @@ export async function POST(request: NextRequest) {
         subject_code: subjectCode || null,
         faculty_name: facultyName,
         faculty_email: facultyEmail.toLowerCase(),
-        division,
+        division: division || '',
         batch: batch || null,
         semester: semesterNum,
         course: course || 'IT',

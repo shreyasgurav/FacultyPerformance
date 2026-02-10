@@ -43,6 +43,8 @@ interface StudentRecord {
   course: string;
   division: string;
   batch: string;
+  honours_course?: string;
+  honours_batch?: string;
 }
 
 interface PageProps {
@@ -137,16 +139,23 @@ function FeedbackFormContent({ params }: PageProps) {
           setParameters(paramsData);
         }
 
-        // Check if student is authorized to access this form
+        // Check if student is authorized to access this form (regular or honours)
         if (formData && currentStudent) {
-          const isAuthorized = 
+          const isRegularAuthorized = 
             formData.semester === currentStudent.semester &&
             formData.course === currentStudent.course &&
             formData.division === currentStudent.division &&
             formData.status === 'active' &&
             (!formData.batch || formData.batch === currentStudent.batch);
+
+          const isHonoursAuthorized =
+            !!currentStudent.honours_course &&
+            formData.semester === currentStudent.semester &&
+            formData.course === currentStudent.honours_course &&
+            formData.status === 'active' &&
+            (!formData.batch || formData.batch === (currentStudent.honours_batch || ''));
           
-          if (!isAuthorized) {
+          if (!isRegularAuthorized && !isHonoursAuthorized) {
             setNotAuthorized(true);
           }
         }

@@ -46,16 +46,14 @@ model feedback_forms {
   feedback_responses feedback_responses[]
   form_questions     form_questions[]
 
-  // Indexes for efficient student dashboard queries
   @@index([semester, course, division, status], map: "idx_student_forms")
   @@index([faculty_email], map: "idx_faculty_email")
 }
 
-// Snapshot of questions for each form (copied from feedback_parameters at form creation)
 model form_questions {
   id                BigInt         @id @default(autoincrement())
   form_id           String         @db.VarChar(50)
-  original_param_id String         @db.VarChar(50)  // Original parameter ID for response tracking
+  original_param_id String         @db.VarChar(50)
   question_text     String         @db.VarChar(255)
   position          Int
   question_type     String         @default("scale_1_10") @db.VarChar(30)
@@ -73,13 +71,13 @@ model feedback_parameters {
 }
 
 model feedback_response_items {
-  id                  BigInt              @id @default(autoincrement())
-  response_id         String              @db.VarChar(50)
-  parameter_id        String              @db.VarChar(50)  // Just a reference string, no FK constraint
-  rating              Int                 @db.TinyInt
-  question_text       String?             @db.VarChar(255)  // Snapshot of question at submission time
-  question_type       String?             @db.VarChar(30)   // Snapshot of question type at submission time
-  feedback_responses  feedback_responses  @relation(fields: [response_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "feedback_response_items_ibfk_1")
+  id                 BigInt             @id @default(autoincrement())
+  response_id        String             @db.VarChar(50)
+  parameter_id       String             @db.VarChar(50)
+  rating             Int                @db.TinyInt
+  question_text      String?            @db.VarChar(255)
+  question_type      String?            @db.VarChar(30)
+  feedback_responses feedback_responses @relation(fields: [response_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "feedback_response_items_ibfk_1")
 
   @@index([parameter_id], map: "parameter_id")
   @@index([response_id], map: "response_id")
@@ -109,6 +107,8 @@ model students {
   course             String               @default("IT") @db.VarChar(50)
   division           String               @db.VarChar(10)
   batch              String?              @db.VarChar(10)
+  honours_course     String?              @db.VarChar(50)
+  honours_batch      String?              @db.VarChar(10)
   user_id            String?              @db.VarChar(50)
   feedback_responses feedback_responses[]
   departments        departments          @relation(fields: [department_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "students_ibfk_1")
@@ -138,6 +138,48 @@ model users {
   faculty    faculty[]
 }
 
+model admin_users {
+  id         String    @id @db.VarChar(50)
+  email      String    @unique @db.VarChar(255)
+  name       String?   @db.VarChar(100)
+  created_at DateTime? @default(now()) @db.Timestamp(0)
+}
+
+model draft_feedback {
+  id         BigInt    @id @default(autoincrement())
+  student_id String    @unique @db.VarChar(50)
+  form_data  String    @db.Text
+  updated_at DateTime? @default(now()) @updatedAt @db.Timestamp(0)
+
+  @@index([student_id], map: "idx_draft_student")
+}
+
+model timetable {
+  id              BigInt    @id @default(autoincrement())
+  subject_name    String    @db.VarChar(150)
+  faculty_email   String    @db.VarChar(150)
+  semester        Int       @db.TinyInt
+  course          String    @db.VarChar(50)
+  division        String    @db.VarChar(10)
+  batch           String?   @db.VarChar(10)
+  honours_course  String?   @db.VarChar(50)
+  honours_batch   String?   @db.VarChar(10)
+  academic_year   String    @db.VarChar(10)
+  created_at      DateTime? @default(now()) @db.Timestamp(0)
+
+  @@index([semester, course, division], map: "idx_timetable_class")
+  @@index([faculty_email], map: "idx_timetable_faculty")
+  @@index([academic_year], map: "idx_timetable_year")
+}
+
+model timetable_images {
+  id         BigInt    @id @default(autoincrement())
+  label      String    @db.VarChar(100)
+  image_data String    @db.LongText
+  mime_type  String    @db.VarChar(50)
+  created_at DateTime? @default(now()) @db.Timestamp(0)
+}
+
 enum users_role {
   student
   faculty
@@ -147,28 +189,4 @@ enum users_role {
 enum feedback_forms_status {
   active
   closed
-}
-
-model admin_users {
-  id         String    @id @db.VarChar(50)
-  email      String    @unique @db.VarChar(255)
-  name       String?   @db.VarChar(100)
-  created_at DateTime? @default(now()) @db.Timestamp(0)
-}
-
-// Timetable - stores faculty-subject-class mappings for generating forms
-model timetable {
-  id            BigInt    @id @default(autoincrement())
-  subject_name  String    @db.VarChar(150)
-  faculty_email String    @db.VarChar(150)
-  semester      Int       @db.TinyInt
-  course        String    @db.VarChar(50)
-  division      String    @db.VarChar(10)
-  batch         String?   @db.VarChar(10)  // NULL for theory subjects
-  academic_year String    @db.VarChar(10)
-  created_at    DateTime? @default(now()) @db.Timestamp(0)
-
-  @@index([semester, course, division], map: "idx_timetable_class")
-  @@index([faculty_email], map: "idx_timetable_faculty")
-  @@index([academic_year], map: "idx_timetable_year")
 }

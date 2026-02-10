@@ -22,6 +22,8 @@ interface Student {
   course: string;
   division: string;
   batch: string;
+  honours_course: string;
+  honours_batch: string;
 }
 
 interface Faculty {
@@ -111,6 +113,8 @@ function UserManagementContent() {
     course: 'IT',
     division: 'A',
     batch: 'A1',
+    honours_course: '',
+    honours_batch: '',
   });
 
   const [newFaculty, setNewFaculty] = useState({
@@ -123,7 +127,7 @@ function UserManagementContent() {
   const [facultyEmailError, setFacultyEmailError] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [showCSVPreviewModal, setShowCSVPreviewModal] = useState(false);
-  const [csvStudents, setCsvStudents] = useState<{ name: string; email: string; semester: string; course: string; division: string; batch: string; selected: boolean; exists: boolean }[]>([]);
+  const [csvStudents, setCsvStudents] = useState<{ name: string; email: string; semester: string; course: string; division: string; batch: string; honours_course: string; honours_batch: string; selected: boolean; exists: boolean }[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Search and filter state - Students
@@ -190,7 +194,7 @@ function UserManagementContent() {
   };
 
   // Parse CSV file
-  const parseCSV = (text: string): { name: string; email: string; semester: string; course: string; division: string; batch: string }[] => {
+  const parseCSV = (text: string): { name: string; email: string; semester: string; course: string; division: string; batch: string; honours_course: string; honours_batch: string }[] => {
     const lines = text.trim().split('\n');
     if (lines.length < 2) return [];
     
@@ -201,6 +205,8 @@ function UserManagementContent() {
     const courseIdx = headers.indexOf('course');
     const divisionIdx = headers.indexOf('division');
     const batchIdx = headers.indexOf('batch');
+    const honoursCourseIdx = headers.findIndex(h => h === 'honours_course' || h === 'honours course' || h === 'minor');
+    const honoursBatchIdx = headers.findIndex(h => h === 'honours_batch' || h === 'honours batch' || h === 'minor_batch');
     
     if (nameIdx === -1 || emailIdx === -1 || semesterIdx === -1 || divisionIdx === -1) {
       throw new Error('CSV must have columns: name, email, semester, course, division, batch');
@@ -226,6 +232,8 @@ function UserManagementContent() {
         course: course,
         division: values[divisionIdx] || 'A',
         batch: batchIdx !== -1 ? values[batchIdx] || '' : '',
+        honours_course: honoursCourseIdx !== -1 ? values[honoursCourseIdx] || '' : '',
+        honours_batch: honoursBatchIdx !== -1 ? values[honoursBatchIdx] || '' : '',
       });
     }
     return students;
@@ -501,7 +509,7 @@ function UserManagementContent() {
       }
       
       setShowStudentModal(false);
-      setNewStudent({ name: '', email: '', semester: '1', course: 'IT', division: 'A', batch: 'A1' });
+      setNewStudent({ name: '', email: '', semester: '1', course: 'IT', division: 'A', batch: 'A1', honours_course: '', honours_batch: '' });
       setToastType('success');
       setShowToast(true);
     } catch (error) {
@@ -673,6 +681,8 @@ function UserManagementContent() {
           course: editingStudent.course,
           division: editingStudent.division,
           batch: editingStudent.batch,
+          honours_course: editingStudent.honours_course,
+          honours_batch: editingStudent.honours_batch,
         }),
       });
       
@@ -993,9 +1003,16 @@ function UserManagementContent() {
                 </div>
                 <p className="text-xs text-gray-500 mb-2 truncate">{student.email}</p>
                 <div className="flex items-center justify-between">
-                  <p className="text-xs text-gray-600">
-                    Sem {student.semester} · Div {student.division}{student.batch ? ` · ${student.batch}` : ''}
-                  </p>
+                  <div>
+                    <p className="text-xs text-gray-600">
+                      Sem {student.semester} · Div {student.division}{student.batch ? ` · ${student.batch}` : ''}
+                    </p>
+                    {student.honours_course && (
+                      <p className="text-xs text-purple-600 mt-0.5">
+                        Honours: {student.honours_course}{student.honours_batch ? ` / ${student.honours_batch}` : ''}
+                      </p>
+                    )}
+                  </div>
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => handleEditStudent(student)}
@@ -1026,6 +1043,7 @@ function UserManagementContent() {
                   <th className="text-left py-3 px-4 text-xs font-medium text-gray-400 uppercase tracking-wider">Semester</th>
                   <th className="text-left py-3 px-4 text-xs font-medium text-gray-400 uppercase tracking-wider">Division</th>
                   <th className="text-left py-3 px-4 text-xs font-medium text-gray-400 uppercase tracking-wider">Batch</th>
+                  <th className="text-left py-3 px-4 text-xs font-medium text-gray-400 uppercase tracking-wider">Honours</th>
                   <th className="text-left py-3 px-6 text-xs font-medium text-gray-400 uppercase tracking-wider">Action</th>
                 </tr>
               </thead>
@@ -1038,6 +1056,11 @@ function UserManagementContent() {
                     <td className="py-3 px-4 text-sm text-gray-600">Sem {student.semester}</td>
                     <td className="py-3 px-4 text-sm text-gray-600">{student.division}</td>
                     <td className="py-3 px-4 text-sm text-gray-600">{student.batch || '-'}</td>
+                    <td className="py-3 px-4 text-sm text-gray-600">
+                      {student.honours_course ? (
+                        <span className="text-purple-600">{student.honours_course}{student.honours_batch ? ` / ${student.honours_batch}` : ''}</span>
+                      ) : '-'}
+                    </td>
                     <td className="py-3 px-6 text-sm">
                       <div className="flex items-center gap-1">
                         <button
@@ -1544,6 +1567,32 @@ function UserManagementContent() {
                     </select>
                   </div>
                 </div>
+                {/* Honours / Minor Fields */}
+                <div className="pt-2 border-t border-gray-100">
+                  <p className="text-xs text-gray-500 mb-2">Honours / Minor (optional - leave empty if not enrolled)</p>
+                  <div className="grid grid-cols-2 gap-2 sm:gap-4">
+                    <div>
+                      <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Honours Course</label>
+                      <input
+                        type="text"
+                        value={newStudent.honours_course}
+                        onChange={e => setNewStudent({ ...newStudent, honours_course: e.target.value })}
+                        className="w-full px-2 sm:px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-1 focus:ring-gray-300 outline-none"
+                        placeholder="e.g. Honours-ML"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Honours Batch</label>
+                      <input
+                        type="text"
+                        value={newStudent.honours_batch}
+                        onChange={e => setNewStudent({ ...newStudent, honours_batch: e.target.value })}
+                        className="w-full px-2 sm:px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-1 focus:ring-gray-300 outline-none"
+                        placeholder="e.g. H1"
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -1794,6 +1843,32 @@ function UserManagementContent() {
                         <option key={b} value={b}>{b}</option>
                       ))}
                     </select>
+                  </div>
+                </div>
+                {/* Honours / Minor Fields */}
+                <div className="pt-2 border-t border-gray-100">
+                  <p className="text-xs text-gray-500 mb-2">Honours / Minor (leave empty if not enrolled)</p>
+                  <div className="grid grid-cols-2 gap-2 sm:gap-4">
+                    <div>
+                      <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Honours Course</label>
+                      <input
+                        type="text"
+                        value={editingStudent.honours_course}
+                        onChange={e => setEditingStudent({ ...editingStudent, honours_course: e.target.value })}
+                        className="w-full px-2 sm:px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-1 focus:ring-gray-300 outline-none"
+                        placeholder="e.g. Honours-ML"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Honours Batch</label>
+                      <input
+                        type="text"
+                        value={editingStudent.honours_batch}
+                        onChange={e => setEditingStudent({ ...editingStudent, honours_batch: e.target.value })}
+                        className="w-full px-2 sm:px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-1 focus:ring-gray-300 outline-none"
+                        placeholder="e.g. H1"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>

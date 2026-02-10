@@ -51,6 +51,8 @@ interface Student {
   course: string;
   division: string;
   batch: string;
+  honours_course?: string;
+  honours_batch?: string;
 }
  
 function ReportContent() {
@@ -259,20 +261,35 @@ function ReportContent() {
 
   const getTotalStudentsForForm = (form: FeedbackForm): number => {
     // Match students by semester, course, division, and batch (if lab form)
+    // Also count students who have this form's course as their honours_course
     return students.filter(student => {
       const matchesSemester = student.semester === form.semester;
+      
+      // Regular course match
       const matchesCourse = student.course.toUpperCase() === form.course.toUpperCase();
       const matchesDivision = student.division.toUpperCase() === form.division.toUpperCase();
       
-      // If form has a batch (lab form), match batch too
-      // If theory form (no batch), count ALL students in that division
+      let regularMatch = false;
       if (form.batch) {
         const matchesBatch = student.batch?.toUpperCase() === form.batch.toUpperCase();
-        return matchesSemester && matchesCourse && matchesDivision && matchesBatch;
+        regularMatch = matchesSemester && matchesCourse && matchesDivision && matchesBatch;
       } else {
-        // Theory form - count all students in this division (regardless of their batch)
-        return matchesSemester && matchesCourse && matchesDivision;
+        regularMatch = matchesSemester && matchesCourse && matchesDivision;
       }
+
+      // Honours course match (no division filter for honours)
+      let honoursMatch = false;
+      if (student.honours_course) {
+        const matchesHonoursCourse = student.honours_course.toUpperCase() === form.course.toUpperCase();
+        if (form.batch) {
+          const matchesHonoursBatch = (student.honours_batch || '').toUpperCase() === form.batch.toUpperCase();
+          honoursMatch = matchesSemester && matchesHonoursCourse && matchesHonoursBatch;
+        } else {
+          honoursMatch = matchesSemester && matchesHonoursCourse;
+        }
+      }
+
+      return regularMatch || honoursMatch;
     }).length;
   };
 

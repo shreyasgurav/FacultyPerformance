@@ -37,6 +37,8 @@ export async function GET(request: NextRequest) {
       course: entry.course,
       division: entry.division,
       batch: entry.batch,
+      honoursCourse: entry.honours_course,
+      honoursBatch: entry.honours_batch,
       academicYear: entry.academic_year,
     }));
 
@@ -69,14 +71,18 @@ export async function POST(request: NextRequest) {
       course: string;
       division: string;
       batch?: string;
+      honoursCourse?: string;
+      honoursBatch?: string;
       academicYear: string;
     }) => ({
       subject_name: entry.subjectName,
       faculty_email: entry.facultyEmail.toLowerCase(),
       semester: entry.semester,
-      course: entry.course.toUpperCase(),
-      division: entry.division.toUpperCase(),
+      course: entry.course ? entry.course.toUpperCase() : '',
+      division: entry.division ? entry.division.toUpperCase() : '',
       batch: entry.batch?.toUpperCase() || null,
+      honours_course: entry.honoursCourse || null,
+      honours_batch: entry.honoursBatch || null,
       academic_year: entry.academicYear,
     }));
 

@@ -62,6 +62,8 @@ export async function GET(request: NextRequest) {
       course: s.course,
       division: s.division,
       batch: s.batch || '',
+      honours_course: s.honours_course || '',
+      honours_batch: s.honours_batch || '',
     }));
     
     return NextResponse.json(mapped);
@@ -80,7 +82,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { name, email, semester, course, division, batch } = body;
+    const { name, email, semester, course, division, batch, honours_course, honours_batch } = body;
 
     if (!name || !email || !semester || !division) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
@@ -118,6 +120,8 @@ export async function POST(request: NextRequest) {
           course: course || 'IT',
           division,
           batch: batch || null,
+          honours_course: honours_course || null,
+          honours_batch: honours_batch || null,
           user_id: user.id,
         },
       });
@@ -133,6 +137,8 @@ export async function POST(request: NextRequest) {
         course: updatedStudent.course,
         division: updatedStudent.division,
         batch: updatedStudent.batch || '',
+        honours_course: updatedStudent.honours_course || '',
+        honours_batch: updatedStudent.honours_batch || '',
         updated: true,
       });
     }
@@ -170,6 +176,8 @@ export async function POST(request: NextRequest) {
         course: course || 'IT',
         division,
         batch: batch || null,
+        honours_course: honours_course || null,
+        honours_batch: honours_batch || null,
         user_id: user.id,
       },
     });
@@ -211,6 +219,8 @@ export async function POST(request: NextRequest) {
       course: student.course,
       division: student.division,
       batch: student.batch || '',
+      honours_course: student.honours_course || '',
+      honours_batch: student.honours_batch || '',
     }, { status: 201 });
 
   } catch (error: unknown) {
@@ -229,7 +239,7 @@ export async function PUT(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { id, semester, course, division, batch } = body;
+    const { id, semester, course, division, batch, honours_course, honours_batch } = body;
 
     if (!id) {
       return NextResponse.json({ error: 'Missing student ID' }, { status: 400 });
@@ -248,6 +258,8 @@ export async function PUT(request: NextRequest) {
         course: course || 'IT',
         division,
         batch: batch || null,
+        honours_course: honours_course || null,
+        honours_batch: honours_batch || null,
       },
     });
 
@@ -262,6 +274,8 @@ export async function PUT(request: NextRequest) {
       course: student.course,
       division: student.division,
       batch: student.batch || '',
+      honours_course: student.honours_course || '',
+      honours_batch: student.honours_batch || '',
     });
 
   } catch (error: unknown) {
