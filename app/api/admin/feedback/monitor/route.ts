@@ -19,19 +19,13 @@ export async function GET(request: NextRequest) {
     const course = searchParams.get('course');
     const batch = searchParams.get('batch');
 
-    if (!semester || !course) {
-      return NextResponse.json({ error: 'Semester and course are required' }, { status: 400 });
-    }
-
-    const semesterNum = parseInt(semester, 10);
-
-    // Build form filter
-    const formWhere: Record<string, unknown> = {
-      semester: semesterNum,
-      course: course,
-    };
-    if (batch) {
-      formWhere.batch = batch;
+    // Build form filter (semester + course optional for "all students" mode)
+    const formWhere: Record<string, unknown> = {};
+    if (semester && course) {
+      const semesterNum = parseInt(semester, 10);
+      formWhere.semester = semesterNum;
+      formWhere.course = course;
+      if (batch) formWhere.batch = batch;
     }
 
     // Fetch forms matching criteria
@@ -46,7 +40,7 @@ export async function GET(request: NextRequest) {
 
     const formIds = forms.map(f => f.id);
 
-    // Fetch all responses for these forms (just form_id and student_id)
+    // Fetch all responses for these forms
     const responses = await prisma.feedback_responses.findMany({
       where: { form_id: { in: formIds } },
       select: {
@@ -57,10 +51,13 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    // Fetch all students in the same semester
-    // We need to check both regular and honours eligibility
+    // Fetch students: filter by semester if provided, otherwise all students
+    const studentWhere: Record<string, unknown> = {};
+    if (semester && course) {
+      studentWhere.semester = parseInt(semester, 10);
+    }
     const allStudents = await prisma.students.findMany({
-      where: { semester: semesterNum },
+      where: studentWhere,
       select: {
         id: true,
         name: true,

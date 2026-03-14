@@ -1,12 +1,11 @@
 'use client';
 
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useState, useRef, useMemo, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { ArrowLeftIcon, CheckCircleIcon } from '@/components/Icons';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
 import ConfirmDialog from '@/components/ConfirmDialog';
-import Modal from '@/components/Modal';
 
 interface Faculty {
   id: string;
@@ -26,14 +25,6 @@ interface FormEntry {
   formType: 'division' | 'batch';
   academicYear: string;
   isHonours?: boolean;
-}
-
-interface TimetableImage {
-  id: string;
-  label: string;
-  mime_type: string;
-  created_at: string;
-  image_data?: string;
 }
 
 function getDefaultAcademicYear(): string {
@@ -63,31 +54,16 @@ function GenerateFormsContent() {
   const [isParsing, setIsParsing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // CSV raw data for preview panel
+  const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
+  const [csvRows, setCsvRows] = useState<string[][]>([]);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
   // Submission
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
-
-  // Timetable sidebar
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [timetableImages, setTimetableImages] = useState<TimetableImage[]>([]);
-  const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
-  const [selectedImageData, setSelectedImageData] = useState<string | null>(null);
-  const [isLoadingImages, setIsLoadingImages] = useState(false);
-  const [isLoadingImageData, setIsLoadingImageData] = useState(false);
-
-  // Add image modal
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [addLabel, setAddLabel] = useState('');
-  const [addImageFile, setAddImageFile] = useState<File | null>(null);
-  const [addImagePreview, setAddImagePreview] = useState<string | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
-  const imageInputRef = useRef<HTMLInputElement>(null);
-
-  // Delete confirm
-  const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; id: string | null }>({ isOpen: false, id: null });
-  const [isDeleting, setIsDeleting] = useState(false);
 
   // Fetch faculty
   useEffect(() => {
@@ -107,124 +83,6 @@ function GenerateFormsContent() {
     fetchFaculty();
   }, [authFetch]);
 
-  // Fetch timetable image list
-  const fetchImages = useCallback(async () => {
-    setIsLoadingImages(true);
-    try {
-      const res = await authFetch('/api/admin/timetable-images');
-      if (res.ok) {
-        const data = await res.json();
-        setTimetableImages(data);
-        // Auto-select first image if none selected
-        if (data.length > 0 && !selectedImageId) {
-          setSelectedImageId(data[0].id);
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching timetable images:', error);
-    } finally {
-      setIsLoadingImages(false);
-    }
-  }, [authFetch, selectedImageId]);
-
-  // Fetch image list when sidebar opens
-  useEffect(() => {
-    if (sidebarOpen) {
-      fetchImages();
-    }
-  }, [sidebarOpen, fetchImages]);
-
-  // Fetch full image data when selected image changes
-  useEffect(() => {
-    if (!selectedImageId) {
-      setSelectedImageData(null);
-      return;
-    }
-    let cancelled = false;
-    setIsLoadingImageData(true);
-    authFetch(`/api/admin/timetable-images?id=${selectedImageId}`)
-      .then(res => res.ok ? res.json() : null)
-      .then(data => {
-        if (!cancelled && data) {
-          setSelectedImageData(data.image_data);
-        }
-      })
-      .catch(() => {})
-      .finally(() => {
-        if (!cancelled) setIsLoadingImageData(false);
-      });
-    return () => { cancelled = true; };
-  }, [selectedImageId, authFetch]);
-
-  // Handle add image file selection
-  const handleImageFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!file.type.startsWith('image/')) {
-      return;
-    }
-    setAddImageFile(file);
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      setAddImagePreview(ev.target?.result as string);
-    };
-    reader.readAsDataURL(file);
-  };
-
-  // Upload new timetable image
-  const handleUploadImage = async () => {
-    if (!addLabel.trim() || !addImageFile || !addImagePreview) return;
-    setIsUploading(true);
-    try {
-      // Extract base64 data
-      const base64 = addImagePreview.split(',')[1];
-      const res = await authFetch('/api/admin/timetable-images', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          label: addLabel.trim(),
-          image_data: base64,
-          mime_type: addImageFile.type,
-        }),
-      });
-      if (res.ok) {
-        const newImg = await res.json();
-        setTimetableImages(prev => [newImg, ...prev]);
-        setSelectedImageId(newImg.id);
-        setShowAddModal(false);
-        setAddLabel('');
-        setAddImageFile(null);
-        setAddImagePreview(null);
-      }
-    } catch (error) {
-      console.error('Error uploading image:', error);
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
-  // Delete timetable image
-  const handleDeleteImage = async () => {
-    if (!deleteConfirm.id) return;
-    setIsDeleting(true);
-    try {
-      const res = await authFetch(`/api/admin/timetable-images?id=${deleteConfirm.id}`, { method: 'DELETE' });
-      if (res.ok) {
-        setTimetableImages(prev => prev.filter(i => i.id !== deleteConfirm.id));
-        if (selectedImageId === deleteConfirm.id) {
-          const remaining = timetableImages.filter(i => i.id !== deleteConfirm.id);
-          setSelectedImageId(remaining.length > 0 ? remaining[0].id : null);
-          setSelectedImageData(null);
-        }
-      }
-    } catch (error) {
-      console.error('Error deleting image:', error);
-    } finally {
-      setIsDeleting(false);
-      setDeleteConfirm({ isOpen: false, id: null });
-    }
-  };
-
   // CSV parsing
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -241,6 +99,8 @@ function GenerateFormsContent() {
     setIsParsing(true);
     setCsvError('');
     setForms([]);
+    setCsvHeaders([]);
+    setCsvRows([]);
     setSuccessMessage('');
     setErrorMessage('');
 
@@ -255,20 +115,29 @@ function GenerateFormsContent() {
           return;
         }
 
-        const header = lines[0].split(',').map(h => h.trim().toLowerCase());
-        const subjectIdx = header.findIndex(h => h === 'subject' || h === 'subject_name');
-        const facultyCodeIdx = header.findIndex(h => h === 'faculty_code' || h === 'code' || h === 'faculty_email');
-        const semesterIdx = header.findIndex(h => h === 'semester' || h === 'sem');
-        const courseIdx = header.findIndex(h => h === 'course');
-        const divisionIdx = header.findIndex(h => h === 'division' || h === 'div');
-        const batchIdx = header.findIndex(h => h === 'batch');
-        const honoursCourseIdx = header.findIndex(h => h === 'honours_course' || h === 'honours course');
-        const honoursBatchIdx = header.findIndex(h => h === 'honours_batch' || h === 'honours batch');
-        const academicYearIdx = header.findIndex(h => h === 'academic_year' || h === 'year' || h === 'ay');
+        const header = lines[0].split(',').map(h => h.trim());
+        const headerLower = header.map(h => h.toLowerCase());
+
+        // Store raw CSV data for preview
+        const rawRows = lines.slice(1).map(line => line.split(',').map(c => c.trim()));
+        setCsvHeaders(header);
+        setCsvRows(rawRows);
+
+        const subjectIdx = headerLower.findIndex(h => h === 'subject' || h === 'subject_name');
+        const facultyCodeIdx = headerLower.findIndex(h => h === 'faculty_code' || h === 'code' || h === 'faculty_email');
+        const semesterIdx = headerLower.findIndex(h => h === 'semester' || h === 'sem');
+        const courseIdx = headerLower.findIndex(h => h === 'course');
+        const divisionIdx = headerLower.findIndex(h => h === 'division' || h === 'div');
+        const batchIdx = headerLower.findIndex(h => h === 'batch');
+        const honoursCourseIdx = headerLower.findIndex(h => h === 'honours_course' || h === 'honours course');
+        const honoursBatchIdx = headerLower.findIndex(h => h === 'honours_batch' || h === 'honours batch');
+        const academicYearIdx = headerLower.findIndex(h => h === 'academic_year' || h === 'year' || h === 'ay');
 
         if (subjectIdx === -1 || facultyCodeIdx === -1 || semesterIdx === -1) {
           setCsvError('Missing required columns: subject, faculty_code, semester');
           setIsParsing(false);
+          // Still open sidebar to show the raw CSV
+          setSidebarOpen(true);
           return;
         }
 
@@ -329,6 +198,8 @@ function GenerateFormsContent() {
         }
         if (parsedForms.length > 0) {
           setForms(parsedForms);
+          // Auto-open CSV preview sidebar
+          setSidebarOpen(true);
         } else if (errors.length === 0) {
           setCsvError('No valid entries found in CSV');
         }
@@ -366,6 +237,9 @@ function GenerateFormsContent() {
       const data = await res.json();
       setSuccessMessage(data.message || `Successfully generated ${forms.length} feedback form(s)!`);
       setForms([]);
+      setCsvHeaders([]);
+      setCsvRows([]);
+      setSidebarOpen(false);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Failed to generate forms');
       setTimeout(() => setErrorMessage(''), 5000);
@@ -373,6 +247,14 @@ function GenerateFormsContent() {
       setIsSubmitting(false);
     }
   };
+
+  const handleClearAll = useCallback(() => {
+    setForms([]);
+    setCsvHeaders([]);
+    setCsvRows([]);
+    setCsvError('');
+    setSidebarOpen(false);
+  }, []);
 
   const stats = useMemo(() => {
     const theoryCount = forms.filter(f => !f.batch).length;
@@ -382,13 +264,12 @@ function GenerateFormsContent() {
   }, [forms]);
 
   const showSuccess = !!successMessage && forms.length === 0;
-  const selectedImageMeta = timetableImages.find(i => i.id === selectedImageId);
 
   return (
     <div className="flex h-[calc(100vh-64px)]">
       {/* Main content - independent scroll */}
       <div className={`overflow-y-auto flex-shrink-0 ${sidebarOpen ? 'w-1/2' : 'w-full'}`} style={{ transition: 'width 400ms cubic-bezier(0.4, 0, 0.2, 1)' }}>
-        <div className={`px-3 sm:px-4 py-4 sm:py-8 ${sidebarOpen ? 'max-w-lg ml-auto mr-4' : 'max-w-2xl mx-auto'}`}>
+        <div className={`py-4 sm:py-6 ${sidebarOpen ? 'max-w-3xl ml-auto mr-4 px-3 sm:px-4' : 'max-w-6xl mx-auto px-3 sm:px-4'}`}>
           {/* Header */}
           <div className="mb-6 sm:mb-8">
             <Link
@@ -403,7 +284,6 @@ function GenerateFormsContent() {
                 <p className="text-gray-500 text-xs sm:text-sm mt-1">Upload a timetable CSV to create feedback forms</p>
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
-                {/* CSV template button (moved to header) */}
                 <a
                   href="/timetable-template.csv"
                   download="timetable.csv"
@@ -437,17 +317,6 @@ function GenerateFormsContent() {
             onConfirm={handleGenerate}
             onCancel={() => setShowConfirm(false)}
             isLoading={isSubmitting}
-          />
-
-          {/* Delete image confirm */}
-          <ConfirmDialog
-            isOpen={deleteConfirm.isOpen}
-            title="Delete Timetable Image"
-            message="Are you sure you want to delete this timetable image? This action cannot be undone."
-            confirmText="Delete"
-            onConfirm={handleDeleteImage}
-            onCancel={() => setDeleteConfirm({ isOpen: false, id: null })}
-            isLoading={isDeleting}
           />
 
           {/* Error */}
@@ -487,20 +356,6 @@ function GenerateFormsContent() {
                 <div className="flex-1">
                   <h2 className="text-sm font-semibold text-gray-900 mb-1">Upload Timetable CSV</h2>
                 </div>
-                {/* Timetable toggle (moved down from header) */}
-                <button
-                  onClick={() => setSidebarOpen(!sidebarOpen)}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] sm:text-xs font-medium transition-colors ${
-                    sidebarOpen
-                      ? 'bg-gray-900 text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  } flex-shrink-0`}
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                  Timetable
-                </button>
               </div>
 
               {csvError && (
@@ -560,12 +415,27 @@ function GenerateFormsContent() {
                     </span>
                   )}
                 </div>
-                <button
-                  onClick={() => { setForms([]); setCsvError(''); }}
-                  className="text-xs text-gray-400 hover:text-red-500 transition-colors"
-                >
-                  Clear all
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setSidebarOpen(!sidebarOpen)}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] sm:text-xs font-medium transition-colors ${
+                      sidebarOpen
+                        ? 'bg-gray-900 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    } flex-shrink-0`}
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                    CSV Preview
+                  </button>
+                  <button
+                    onClick={handleClearAll}
+                    className="text-xs text-gray-400 hover:text-red-500 transition-colors"
+                  >
+                    Clear all
+                  </button>
+                </div>
               </div>
 
               {csvError && (
@@ -638,7 +508,7 @@ function GenerateFormsContent() {
         </div>
       </div>
 
-      {/* Timetable Sidebar - Finder-inspired */}
+      {/* CSV Preview Sidebar */}
       <div className={`overflow-hidden border-l bg-gray-50/80 sticky top-0 h-[calc(100vh-64px)] flex-shrink-0 ${
         sidebarOpen ? 'w-1/2 border-gray-200' : 'w-0 border-transparent'
       }`} style={{ transition: 'width 400ms cubic-bezier(0.4, 0, 0.2, 1), border-color 400ms cubic-bezier(0.4, 0, 0.2, 1)' }}>
@@ -647,163 +517,65 @@ function GenerateFormsContent() {
           <div className="flex items-center justify-between gap-2 px-3 py-2.5 bg-white/80 backdrop-blur-sm border-b border-gray-200">
             <div className="flex items-center gap-1.5 min-w-0">
               <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
               </svg>
-              <span className="text-xs font-semibold text-gray-700 truncate">Timetable Images</span>
+              <span className="text-xs font-semibold text-gray-700 truncate">CSV Preview</span>
+              {csvRows.length > 0 && (
+                <span className="text-[10px] text-gray-400 ml-1">{csvRows.length} row{csvRows.length !== 1 ? 's' : ''} · {csvHeaders.length} col{csvHeaders.length !== 1 ? 's' : ''}</span>
+              )}
             </div>
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => setShowAddModal(true)}
-                className="w-7 h-7 flex items-center justify-center rounded-md text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors"
-                title="Add timetable image"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-              </button>
-              <button
-                onClick={() => setSidebarOpen(false)}
-                className="w-7 h-7 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
-                title="Close"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
+            <button
+              onClick={() => setSidebarOpen(false)}
+              className="w-7 h-7 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+              title="Close"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
           </div>
 
-          {/* Image tabs */}
-          {timetableImages.length > 0 && (
-            <div className="flex items-center gap-1 px-3 py-2 bg-white/60 border-b border-gray-100 overflow-x-auto">
-              {timetableImages.map(img => (
-                <button
-                  key={img.id}
-                  onClick={() => setSelectedImageId(img.id)}
-                  className={`flex-shrink-0 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all ${
-                    selectedImageId === img.id
-                      ? 'bg-gray-900 text-white shadow-sm'
-                      : 'text-gray-600 hover:bg-gray-200/80'
-                  }`}
-                >
-                  {img.label}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {/* Image display area */}
-          <div className="flex-1 overflow-auto p-3">
-            {isLoadingImages ? (
-              <div className="flex items-center justify-center h-full">
-                <div className="w-5 h-5 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
-              </div>
-            ) : timetableImages.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full text-center">
+          {/* CSV Table */}
+          <div className="flex-1 overflow-auto">
+            {csvHeaders.length > 0 ? (
+              <table className="w-full text-xs border-collapse min-w-max">
+                <thead className="sticky top-0 z-10">
+                  <tr className="bg-gray-100/95 backdrop-blur-sm">
+                    <th className="px-2.5 py-2 text-left font-semibold text-gray-500 border-b border-gray-200 whitespace-nowrap">#</th>
+                    {csvHeaders.map((h, i) => (
+                      <th key={i} className="px-2.5 py-2 text-left font-semibold text-gray-700 border-b border-gray-200 whitespace-nowrap">
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {csvRows.map((row, rowIdx) => (
+                    <tr key={rowIdx} className="hover:bg-white/60 transition-colors border-b border-gray-100/60">
+                      <td className="px-2.5 py-2 text-gray-400 font-mono whitespace-nowrap">{rowIdx + 1}</td>
+                      {csvHeaders.map((_, colIdx) => (
+                        <td key={colIdx} className="px-2.5 py-2 text-gray-700 whitespace-nowrap">
+                          {row[colIdx] || <span className="text-gray-300">—</span>}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <div className="flex flex-col items-center justify-center h-full text-center px-4">
                 <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center mb-3">
                   <svg className="w-6 h-6 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                   </svg>
                 </div>
-                <p className="text-xs text-gray-500 mb-1">No timetable images yet</p>
-                <p className="text-[11px] text-gray-400 mb-3">Add timetable images for reference while creating forms</p>
-                <button
-                  onClick={() => setShowAddModal(true)}
-                  className="px-3 py-1.5 bg-gray-900 text-white text-xs font-medium rounded-lg hover:bg-gray-800 transition-colors"
-                >
-                  Add Timetable
-                </button>
-              </div>
-            ) : isLoadingImageData ? (
-              <div className="flex items-center justify-center h-64">
-                <div className="w-5 h-5 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
-              </div>
-            ) : selectedImageData ? (
-              <div>
-                {/* Image info bar */}
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-[11px] text-gray-500 font-medium">{selectedImageMeta?.label}</p>
-                  <button
-                    onClick={() => setDeleteConfirm({ isOpen: true, id: selectedImageId })}
-                    className="text-[11px] text-red-500 hover:text-red-600 font-medium transition-colors"
-                  >
-                    Delete
-                  </button>
-                </div>
-                {/* Image */}
-                <div className="bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm">
-                  <img
-                    src={`data:${selectedImageMeta?.mime_type || 'image/png'};base64,${selectedImageData}`}
-                    alt={selectedImageMeta?.label || 'Timetable'}
-                    className="w-full h-auto"
-                  />
-                </div>
-              </div>
-            ) : (
-              <div className="flex items-center justify-center h-full text-xs text-gray-400">
-                Select a timetable to preview
+                <p className="text-xs text-gray-500 mb-1">No CSV data yet</p>
+                <p className="text-[11px] text-gray-400">Upload a CSV to see a preview here</p>
               </div>
             )}
           </div>
         </div>
       </div>
-
-      {/* Add Timetable Image Modal */}
-      <Modal isOpen={showAddModal} onClose={() => { setShowAddModal(false); setAddLabel(''); setAddImageFile(null); setAddImagePreview(null); }} title="Add Timetable Image">
-        <div className="space-y-4">
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1.5">Label</label>
-            <input
-              type="text"
-              value={addLabel}
-              onChange={(e) => setAddLabel(e.target.value)}
-              placeholder="e.g. IT Sem 6 Div A"
-              className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-gray-900 focus:border-gray-900 focus:bg-white transition-colors outline-none"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1.5">Image</label>
-            <input ref={imageInputRef} type="file" accept="image/*" onChange={handleImageFileSelect} className="hidden" id="timetable-image-upload" />
-
-            {addImagePreview ? (
-              <div className="relative">
-                <img src={addImagePreview} alt="Preview" className="w-full rounded-lg border border-gray-200" />
-                <button
-                  onClick={() => { setAddImageFile(null); setAddImagePreview(null); if (imageInputRef.current) imageInputRef.current.value = ''; }}
-                  className="absolute top-2 right-2 w-6 h-6 bg-black/50 text-white rounded-full flex items-center justify-center hover:bg-black/70 transition-colors"
-                >
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-            ) : (
-              <label
-                htmlFor="timetable-image-upload"
-                className="block w-full py-8 px-4 rounded-lg text-sm text-center cursor-pointer border-2 border-dashed border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-600 transition-colors"
-              >
-                <svg className="w-6 h-6 mx-auto mb-1 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-                Click to select image
-              </label>
-            )}
-          </div>
-
-          <button
-            onClick={handleUploadImage}
-            disabled={!addLabel.trim() || !addImageFile || isUploading}
-            className={`w-full py-2.5 rounded-lg text-sm font-semibold transition-all ${
-              !addLabel.trim() || !addImageFile || isUploading
-                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                : 'bg-gray-900 text-white hover:bg-gray-800 active:scale-[0.98]'
-            }`}
-          >
-            {isUploading ? 'Uploading...' : 'Add Timetable'}
-          </button>
-        </div>
-      </Modal>
     </div>
   );
 }

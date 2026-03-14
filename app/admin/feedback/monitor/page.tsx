@@ -105,12 +105,13 @@ function MonitorContent() {
   const [copied, setCopied] = useState(false);
 
   const fetchData = useCallback(async () => {
-    if (!semester || !course) return;
     setLoading(true);
     setError('');
 
     try {
-      const params = new URLSearchParams({ semester, course });
+      const params = new URLSearchParams();
+      if (semester) params.set('semester', semester);
+      if (course) params.set('course', course);
       if (batchParam) params.set('batch', batchParam);
 
       const res = await authFetch(`/api/admin/feedback/monitor?${params}`);
@@ -275,16 +276,7 @@ Thank you.`;
     return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
   };
 
-  if (!semester || !course) {
-    return (
-      <div className="max-w-6xl mx-auto px-3 sm:px-4 py-4 sm:py-6">
-        <p className="text-gray-500 text-sm">Missing required parameters. Please go back and select a course.</p>
-        <Link href="/admin/feedback" className="text-sm text-gray-900 underline mt-2 inline-block">
-          Back to Feedback Monitoring
-        </Link>
-      </div>
-    );
-  }
+  const isFiltered = !!(semester && course);
 
   return (
     <div className="max-w-6xl mx-auto px-3 sm:px-4 py-4 sm:py-6">
@@ -300,22 +292,39 @@ Thank you.`;
           <div>
             <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Student Completion Monitor</h1>
             <div className="flex items-center gap-1.5 flex-wrap mt-1">
-              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
-                Sem {semester}
-              </span>
-              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                isHonoursCourse(course) ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-700'
-              }`}>
-                {course === 'AIDS' ? 'AI&DS' : course}
-                {isHonoursCourse(course) && ' (Honours)'}
-              </span>
-              {batchParam && (
-                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
-                  {batchParam}
+              {isFiltered ? (
+                <>
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+                    Sem {semester}
+                  </span>
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                    isHonoursCourse(course) ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-700'
+                  }`}>
+                    {course === 'AIDS' ? 'AI&DS' : course}
+                    {isHonoursCourse(course) && ' (Honours)'}
+                  </span>
+                  {batchParam && (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+                      {batchParam}
+                    </span>
+                  )}
+                </>
+              ) : (
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
+                  All Students
                 </span>
               )}
             </div>
           </div>
+          <Link
+            href="/admin/feedback"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 sm:py-2 bg-gray-900 text-white text-xs sm:text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors flex-shrink-0"
+          >
+            <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+            </svg>
+            View Forms
+          </Link>
         </div>
       </div>
 

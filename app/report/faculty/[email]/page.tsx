@@ -1,11 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeftIcon } from '@/components/Icons';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 interface FeedbackForm {
   id: string;
@@ -188,6 +190,119 @@ function FacultyReportContent() {
 
   const overallStats = getOverallStats();
 
+  // Group forms by academic year + odd/even semester
+  // Odd semesters (1,3,5,7) = July–Dec, Even semesters (2,4,6,8) = Jan–May
+  const formsByPeriod = facultyForms.reduce<Record<string, FeedbackForm[]>>((acc, form) => {
+    const ay = form.academic_year || 'Unknown';
+    const isOdd = form.semester % 2 !== 0;
+    const key = `${ay}|${isOdd ? 'odd' : 'even'}`;
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(form);
+    return acc;
+  }, {});
+
+  // Sort periods: by academic year asc, then odd before even within same year
+  // e.g. 2024-25 Odd, 2024-25 Even, 2025-26 Odd, 2025-26 Even
+  const sortedPeriodKeys = Object.keys(formsByPeriod).sort((a, b) => {
+    const [ayA, typeA] = a.split('|');
+    const [ayB, typeB] = b.split('|');
+    if (ayA !== ayB) return ayA.localeCompare(ayB);
+    // odd (July–Dec) comes before even (Jan–May) within same academic year
+    return typeA === 'odd' ? -1 : 1;
+  });
+
+  // Helper to format period label - stable reference
+  const getPeriodLabel = useCallback((key: string): string => {
+    const [ay, type] = key.split('|');
+    if (type === 'odd') return `July – Dec ${ay} (Odd)`;
+    return `Jan – May ${ay} (Even)`;
+  }, []);
+
+  // Download PDF report
+  const downloadPDF = useCallback(() => {
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    let currentY = 15;
+
+    // College header
+    doc.setFontSize(13);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(0, 0, 0);
+    doc.text('K. J. Somaiya College of Engineering, Vidyavihar, Mumbai -77', pageWidth / 2, currentY, { align: 'center' });
+    currentY += 6;
+
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(200, 30, 30);
+    doc.text('(A Constituent College of Somaiya Vidyavihar University)', pageWidth / 2, currentY, { align: 'center' });
+    currentY += 6;
+
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(0, 0, 0);
+    doc.text('Department of Information Technology', pageWidth / 2, currentY, { align: 'center' });
+    currentY += 12;
+
+    sortedPeriodKeys.forEach((periodKey, periodIdx) => {
+      const periodForms = formsByPeriod[periodKey];
+      const periodLabel = getPeriodLabel(periodKey);
+
+      // Check if we need a new page (at least 60mm needed for a table)
+      if (periodIdx > 0 && currentY > 220) {
+        doc.addPage();
+        currentY = 20;
+      }
+
+      // Period header (e.g. "July – Dec 2024-25 (Odd)")
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(60, 60, 60);
+      doc.text(periodLabel, pageWidth / 2, currentY, { align: 'center' });
+      currentY += 8;
+
+      // Build table body: title row + column headers + data rows (matching docx template)
+      const subjectRows = periodForms.map(form => {
+        const stats = getFormStats(form.id);
+        const semDiv = `Sem ${form.semester} · ${form.course === 'AIDS' ? 'AI&DS' : form.course}${form.division ? ` · Div ${form.division}` : ''}${form.batch ? ` / ${form.batch}` : ''}`;
+        const rating = stats.avgRating > 0 ? stats.avgRating.toFixed(2) : '-';
+        return [form.subject_name, semDiv, rating];
+      });
+
+      // Full body: title row, then header row, then data
+      const fullBody = [
+        [{ content: 'Students Evaluation results for', styles: { fontStyle: 'normal' as const } }, { content: facultyName, colSpan: 2, styles: { fontStyle: 'bold' as const } }],
+        [{ content: 'Subject Name', styles: { fontStyle: 'bold' as const, fillColor: [240, 240, 240] as [number, number, number], halign: 'center' as const } }, { content: 'Semester and\nDivision', styles: { fontStyle: 'bold' as const, fillColor: [240, 240, 240] as [number, number, number], halign: 'center' as const } }, { content: 'Rating (/10)', styles: { fontStyle: 'bold' as const, fillColor: [240, 240, 240] as [number, number, number], halign: 'center' as const } }],
+        ...subjectRows,
+      ];
+
+      autoTable(doc, {
+        startY: currentY,
+        body: fullBody,
+        theme: 'grid',
+        styles: {
+          fontSize: 10,
+          cellPadding: 3,
+          lineColor: [0, 0, 0],
+          lineWidth: 0.3,
+          textColor: [0, 0, 0],
+        },
+        columnStyles: {
+          0: { halign: 'left', cellWidth: 'auto' },
+          1: { halign: 'center', cellWidth: 55 },
+          2: { halign: 'center', cellWidth: 30 },
+        },
+        margin: { left: 20, right: 20 },
+      });
+
+      // Get the final Y after table
+      currentY = (doc as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 15;
+    });
+
+    // Save
+    const safeName = facultyName.replace(/[^a-zA-Z0-9 ]/g, '').trim().replace(/\s+/g, '_');
+    doc.save(`${safeName}_Feedback_Report.pdf`);
+  }, [formsByPeriod, sortedPeriodKeys, getPeriodLabel, facultyName, getFormStats]);
+
   if (isLoading) {
     return (
       <div className="max-w-5xl mx-auto px-3 sm:px-4 py-4 sm:py-6">
@@ -243,102 +358,122 @@ function FacultyReportContent() {
             <h1 className="text-xl sm:text-2xl font-bold text-gray-900 truncate">{facultyName}</h1>
             <p className="text-xs sm:text-sm text-gray-500 mt-0.5 truncate">{facultyEmail}</p>
           </div>
-          {overallStats.avgRating > 0 && (
-            <div className="text-right flex-shrink-0">
-              <p className={`text-2xl sm:text-3xl font-bold ${
-                overallStats.avgRating >= 7 ? 'text-green-600' :
-                overallStats.avgRating >= 5 ? 'text-yellow-600' : 'text-red-600'
-              }`}>
-                {overallStats.avgRating.toFixed(1)}
-                <span className="text-sm sm:text-lg text-gray-400 font-normal">/10</span>
-              </p>
-            </div>
-          )}
+          <div className="flex items-center gap-3 flex-shrink-0">
+            <button
+              onClick={downloadPDF}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 sm:py-2 border border-gray-200 text-gray-700 text-xs sm:text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              Download Report
+            </button>
+            {overallStats.avgRating > 0 && (
+              <div className="text-right">
+                <p className={`text-2xl sm:text-3xl font-bold ${
+                  overallStats.avgRating >= 7 ? 'text-green-600' :
+                  overallStats.avgRating >= 5 ? 'text-yellow-600' : 'text-red-600'
+                }`}>
+                  {overallStats.avgRating.toFixed(1)}
+                  <span className="text-sm sm:text-lg text-gray-400 font-normal">/10</span>
+                </p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Subjects List */}
-      <div className="bg-white rounded-xl sm:rounded-2xl border border-gray-100 p-4 sm:p-6">
-        <h2 className="text-sm sm:text-base font-semibold text-gray-900 mb-3 sm:mb-4">Subjects</h2>
-        <div className="space-y-2 sm:space-y-3">
-          {facultyForms.map(form => {
-            const stats = getFormStats(form.id);
-            
-            return (
-              <Link
-                key={form.id}
-                href={`/report/${form.id}`}
-                className="block p-3 sm:p-4 rounded-lg sm:rounded-xl border border-gray-100 hover:border-gray-200 hover:bg-gray-50/50 transition-all group"
-              >
-                {/* Mobile layout */}
-                <div className="sm:hidden">
-                  <div className="flex items-start justify-between gap-2 mb-2">
-                    <p className="font-medium text-gray-900 text-sm leading-tight">
-                      {form.subject_name}
-                    </p>
-                    <div className="text-gray-300 group-hover:text-gray-400 transition-colors flex-shrink-0">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                      </svg>
-                    </div>
-                  </div>
-                  <p className="text-xs text-gray-500 mb-2">
-                    {form.academic_year} · Sem {form.semester} · {form.course === 'AIDS' ? 'AI & DS' : 'IT'} · {form.division}{form.batch ? ` / ${form.batch}` : ''}
-                  </p>
-                  <div className="flex items-center gap-4">
-                    <div>
-                      <span className="text-xs text-gray-400">Responses: </span>
-                      <span className="text-xs font-semibold text-gray-900">{stats.responseCount}</span>
-                    </div>
-                    <div>
-                      <span className="text-xs text-gray-400">Rating: </span>
-                      <span className={`text-xs font-bold ${
-                        stats.avgRating >= 7 ? 'text-green-600' :
-                        stats.avgRating >= 5 ? 'text-yellow-600' : 
-                        stats.avgRating > 0 ? 'text-red-600' : 'text-gray-400'
-                      }`}>
-                        {stats.avgRating > 0 ? stats.avgRating.toFixed(1) : '-'}/10
-                      </span>
-                    </div>
-                  </div>
-                </div>
+      {/* Subjects List grouped by period */}
+      <div className="space-y-4 sm:space-y-6">
+        {sortedPeriodKeys.map(periodKey => {
+          const periodForms = formsByPeriod[periodKey];
+          const periodLabel = getPeriodLabel(periodKey);
 
-                {/* Desktop layout */}
-                <div className="hidden sm:flex items-center justify-between gap-4">
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-gray-900 group-hover:text-gray-700 truncate">
-                      {form.subject_name}
-                    </p>
-                    <p className="text-xs text-gray-500 mt-0.5">
-                      {form.academic_year} · Sem {form.semester} · {form.course === 'AIDS' ? 'AI & DS' : 'IT'} · Div {form.division}{form.batch ? ` / Batch ${form.batch}` : ''}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-6">
-                    <div className="text-right">
-                      <p className="text-xs text-gray-400">Responses</p>
-                      <p className="text-sm font-semibold text-gray-900">{stats.responseCount}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-xs text-gray-400">Rating</p>
-                      <p className={`text-sm font-bold ${
-                        stats.avgRating >= 7 ? 'text-green-600' :
-                        stats.avgRating >= 5 ? 'text-yellow-600' : 
-                        stats.avgRating > 0 ? 'text-red-600' : 'text-gray-400'
-                      }`}>
-                        {stats.avgRating > 0 ? stats.avgRating.toFixed(1) : '-'}/10
-                      </p>
-                    </div>
-                    <div className="text-gray-300 group-hover:text-gray-400 transition-colors">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                      </svg>
-                    </div>
-                  </div>
-                </div>
-              </Link>
-            );
-          })}
-        </div>
+          return (
+            <div key={periodKey} className="bg-white rounded-xl sm:rounded-2xl border border-gray-100 p-4 sm:p-6">
+              <h2 className="text-sm sm:text-base font-semibold text-gray-900 mb-3 sm:mb-4">{periodLabel}</h2>
+              <div className="space-y-2 sm:space-y-3">
+                {periodForms.map(form => {
+                  const stats = getFormStats(form.id);
+                  
+                  return (
+                    <Link
+                      key={form.id}
+                      href={`/report/${form.id}`}
+                      className="block p-3 sm:p-4 rounded-lg sm:rounded-xl border border-gray-100 hover:border-gray-200 hover:bg-gray-50/50 transition-all group"
+                    >
+                      {/* Mobile layout */}
+                      <div className="sm:hidden">
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <p className="font-medium text-gray-900 text-sm leading-tight">
+                            {form.subject_name}
+                          </p>
+                          <div className="text-gray-300 group-hover:text-gray-400 transition-colors flex-shrink-0">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                            </svg>
+                          </div>
+                        </div>
+                        <p className="text-xs text-gray-500 mb-2">
+                          Sem {form.semester} · {form.course === 'AIDS' ? 'AI & DS' : form.course} · {form.division}{form.batch ? ` / ${form.batch}` : ''}
+                        </p>
+                        <div className="flex items-center gap-4">
+                          <div>
+                            <span className="text-xs text-gray-400">Responses: </span>
+                            <span className="text-xs font-semibold text-gray-900">{stats.responseCount}</span>
+                          </div>
+                          <div>
+                            <span className="text-xs text-gray-400">Rating: </span>
+                            <span className={`text-xs font-bold ${
+                              stats.avgRating >= 7 ? 'text-green-600' :
+                              stats.avgRating >= 5 ? 'text-yellow-600' : 
+                              stats.avgRating > 0 ? 'text-red-600' : 'text-gray-400'
+                            }`}>
+                              {stats.avgRating > 0 ? stats.avgRating.toFixed(1) : '-'}/10
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Desktop layout */}
+                      <div className="hidden sm:flex items-center justify-between gap-4">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-gray-900 group-hover:text-gray-700 truncate">
+                            {form.subject_name}
+                          </p>
+                          <p className="text-xs text-gray-500 mt-0.5">
+                            Sem {form.semester} · {form.course === 'AIDS' ? 'AI & DS' : form.course} · Div {form.division}{form.batch ? ` / Batch ${form.batch}` : ''}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-6">
+                          <div className="text-right">
+                            <p className="text-xs text-gray-400">Responses</p>
+                            <p className="text-sm font-semibold text-gray-900">{stats.responseCount}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-xs text-gray-400">Rating</p>
+                            <p className={`text-sm font-bold ${
+                              stats.avgRating >= 7 ? 'text-green-600' :
+                              stats.avgRating >= 5 ? 'text-yellow-600' : 
+                              stats.avgRating > 0 ? 'text-red-600' : 'text-gray-400'
+                            }`}>
+                              {stats.avgRating > 0 ? stats.avgRating.toFixed(1) : '-'}/10
+                            </p>
+                          </div>
+                          <div className="text-gray-300 group-hover:text-gray-400 transition-colors">
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                            </svg>
+                          </div>
+                        </div>
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
