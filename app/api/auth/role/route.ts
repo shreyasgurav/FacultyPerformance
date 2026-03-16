@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { verifyFirebaseToken } from '@/lib/firebase-admin';
 
 // Force dynamic rendering for this API route
 export const dynamic = 'force-dynamic';
@@ -15,13 +16,30 @@ const FALLBACK_ADMIN_EMAILS = [
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const email = searchParams.get('email');
+    let normalizedEmail: string | null = null;
 
-    if (!email) {
-      return NextResponse.json({ role: null }, { status: 400 });
+    // Primary: Verify Firebase ID token
+    const authHeader = request.headers.get('authorization');
+    if (authHeader?.startsWith('Bearer ')) {
+      const idToken = authHeader.substring(7);
+      const verified = await verifyFirebaseToken(idToken);
+      if (verified) {
+        normalizedEmail = verified.email;
+      }
     }
 
-    const normalizedEmail = email.toLowerCase();
+    // Fallback: email query param (only if no FIREBASE_SERVICE_ACCOUNT = local dev)
+    if (!normalizedEmail) {
+      const emailParam = searchParams.get('email');
+      if (emailParam && !process.env.FIREBASE_SERVICE_ACCOUNT) {
+        normalizedEmail = emailParam.toLowerCase();
+      } else if (!emailParam) {
+        return NextResponse.json({ role: null }, { status: 400 });
+      } else {
+        // Service account configured but no valid token — reject
+        return NextResponse.json({ role: null, error: 'Invalid or missing authentication token' }, { status: 401 });
+      }
+    }
 
     // Check if admin in DB first
     const dbAdmin = await prisma.admin_users.findUnique({
@@ -46,7 +64,7 @@ export async function GET(request: NextRequest) {
 
     // Check if faculty
     const faculty = await prisma.faculty.findUnique({
-      where: { email: email }
+      where: { email: normalizedEmail }
     });
 
     if (faculty) {
@@ -60,7 +78,7 @@ export async function GET(request: NextRequest) {
 
     // Check if student
     const student = await prisma.students.findUnique({
-      where: { email: email }
+      where: { email: normalizedEmail }
     });
 
     if (student) {
@@ -75,7 +93,7 @@ export async function GET(request: NextRequest) {
     // User not found in any role
     return NextResponse.json({ 
       role: null,
-      email: email,
+      email: normalizedEmail,
       message: 'User not registered in the system'
     });
 

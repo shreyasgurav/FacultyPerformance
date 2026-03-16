@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { prisma } from './prisma';
+import { verifyFirebaseToken } from './firebase-admin';
 
 // Fallback admin emails (always have access, even if DB is empty)
 const FALLBACK_ADMIN_EMAILS = [
@@ -20,17 +21,44 @@ export interface AuthResult {
 }
 
 /**
- * Verify user authentication from request headers
- * The client sends the user's email in x-user-email header after Firebase auth
+ * Verify user authentication from request headers.
+ * Primary: Verify Firebase ID token from Authorization header.
+ * Fallback: Accept x-user-email header only if FIREBASE_SERVICE_ACCOUNT is not configured
+ * (for local development without service account).
  */
 export async function verifyAuth(request: NextRequest): Promise<AuthResult> {
-  const email = request.headers.get('x-user-email');
-  
-  if (!email) {
-    return { authenticated: false, email: null, role: null };
+  let normalizedEmail: string | null = null;
+
+  // Primary: Check for Firebase ID token in Authorization header
+  const authHeader = request.headers.get('authorization');
+  if (authHeader?.startsWith('Bearer ')) {
+    const idToken = authHeader.substring(7);
+    const verified = await verifyFirebaseToken(idToken);
+    if (verified) {
+      normalizedEmail = verified.email;
+    } else {
+      // Token provided but invalid/expired — reject
+      return { authenticated: false, email: null, role: null };
+    }
   }
 
-  const normalizedEmail = email.toLowerCase();
+  // Fallback: x-user-email header (only if no service account configured = local dev)
+  if (!normalizedEmail) {
+    const emailHeader = request.headers.get('x-user-email');
+    if (emailHeader) {
+      if (!process.env.FIREBASE_SERVICE_ACCOUNT) {
+        // No service account = local dev mode, trust the header
+        normalizedEmail = emailHeader.toLowerCase();
+      } else {
+        // Service account is configured but no valid token provided — reject
+        return { authenticated: false, email: null, role: null };
+      }
+    }
+  }
+
+  if (!normalizedEmail) {
+    return { authenticated: false, email: null, role: null };
+  }
 
   // Check if admin (first check DB, then fallback list)
   const dbAdmin = await prisma.admin_users.findUnique({

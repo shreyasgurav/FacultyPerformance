@@ -12,24 +12,18 @@ async function checkEmailInOtherRoles(email: string, excludeRole: 'student' | 'f
   const normalizedEmail = email.toLowerCase();
   
   if (excludeRole !== 'student') {
-    // Check students table
-    const students = await prisma.students.findMany();
-    const studentMatch = students.find(s => s.email.toLowerCase() === normalizedEmail);
-    if (studentMatch) return { exists: true, role: 'student' };
+    const student = await prisma.students.findUnique({ where: { email: normalizedEmail } });
+    if (student) return { exists: true, role: 'student' };
   }
   
   if (excludeRole !== 'faculty') {
-    // Check faculty table
-    const facultyList = await prisma.faculty.findMany();
-    const facultyMatch = facultyList.find(f => f.email.toLowerCase() === normalizedEmail);
-    if (facultyMatch) return { exists: true, role: 'faculty' };
+    const faculty = await prisma.faculty.findUnique({ where: { email: normalizedEmail } });
+    if (faculty) return { exists: true, role: 'faculty' };
   }
   
   if (excludeRole !== 'admin') {
-    // Check admin_users table
-    const admins = await prisma.admin_users.findMany();
-    const adminMatch = admins.find(a => a.email.toLowerCase() === normalizedEmail);
-    if (adminMatch) return { exists: true, role: 'admin' };
+    const admin = await prisma.admin_users.findUnique({ where: { email: normalizedEmail } });
+    if (admin) return { exists: true, role: 'admin' };
   }
   
   return { exists: false };

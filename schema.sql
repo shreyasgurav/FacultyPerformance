@@ -170,6 +170,32 @@ CREATE TABLE `draft_feedback` (
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
+-- timetable_images table (stores uploaded timetable images as base64)
+CREATE TABLE `timetable_images` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT,
+    `label` VARCHAR(100) NOT NULL,
+    `image_data` LONGTEXT NOT NULL,
+    `mime_type` VARCHAR(50) NOT NULL,
+    `created_at` TIMESTAMP(0) NULL DEFAULT CURRENT_TIMESTAMP(0),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- Seed default department (required for student/faculty creation)
+INSERT INTO `departments` (`id`, `name`) VALUES ('dept1', 'Information Technology');
+
+-- Seed default feedback parameters (theory + lab questions)
+INSERT INTO `feedback_parameters` (`id`, `text`, `position`, `form_type`, `question_type`) VALUES
+('theory_1', 'Interaction with students regarding the subject taught and query-handling during lectures', 1, 'theory', 'scale_3'),
+('theory_2', 'Number of numerical problems solved/case studies and practical applications discussed', 2, 'theory', 'scale_3'),
+('theory_3', 'Audibility and overall command on verbal communication', 3, 'theory', 'scale_3'),
+('theory_4', 'Command on the subject taught', 4, 'theory', 'scale_3'),
+('theory_5', 'Use of audio/visuals aids (e.g. OHP slides, LCD projector, PA system, charts, models etc.)', 5, 'theory', 'scale_3'),
+('theory_6', 'Whether the test-syllabus was covered satisfactorily before the term tests?', 6, 'theory', 'scale_3'),
+('theory_7', 'Evaluation of the faculty in the scale of 1-10', 7, 'theory', 'scale_1_10'),
+('lab_1', 'The practical/tutorial sessions/assignments were well explained and planned to cover the syllabus thoroughly', 1, 'lab', 'yes_no'),
+('lab_2', 'The practical/tutorial sessions/assignments were useful for conceptual understanding of the topics', 2, 'lab', 'yes_no'),
+('lab_3', 'Evaluation of the faculty in the scale of 1-10', 3, 'lab', 'scale_1_10');
+
 -- Foreign key constraints
 -- Note: Prisma uses relationMode="prisma" so it doesn't create FKs automatically,
 -- but we're adding them here for better data integrity

@@ -33,10 +33,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [userRole, setUserRole] = useState<UserRole | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Fetch user role from database based on email
-  const fetchUserRole = async (email: string): Promise<UserRole> => {
+  // Fetch user role from database using Firebase ID token
+  const fetchUserRole = async (firebaseUser: User): Promise<UserRole> => {
     try {
-      const res = await fetch(`/api/auth/role?email=${encodeURIComponent(email)}`);
+      const headers: Record<string, string> = {};
+      try {
+        const idToken = await firebaseUser.getIdToken();
+        headers['Authorization'] = `Bearer ${idToken}`;
+      } catch {
+        // Fallback for local dev
+        if (firebaseUser.email) {
+          headers['x-user-email'] = firebaseUser.email;
+        }
+      }
+
+      const res = await fetch(`/api/auth/role?email=${encodeURIComponent(firebaseUser.email || '')}`, { headers });
       if (res.ok) {
         const data = await res.json();
         return data;
@@ -56,7 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(firebaseUser);
       
       if (firebaseUser?.email) {
-        const role = await fetchUserRole(firebaseUser.email);
+        const role = await fetchUserRole(firebaseUser);
         setUserRole(role);
       } else {
         setUserRole(null);
@@ -79,7 +90,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(true);
       const result = await signInWithPopup(authInstance, providerInstance);
       if (result.user?.email) {
-        const role = await fetchUserRole(result.user.email);
+        const role = await fetchUserRole(result.user);
         setUserRole(role);
       }
     } catch (error) {
@@ -105,12 +116,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // Authenticated fetch - adds user email header to all requests
+  // Authenticated fetch - adds Firebase ID token to all requests
   const authFetch = async (url: string, options: RequestInit = {}): Promise<Response> => {
     const headers = new Headers(options.headers);
     
-    if (user?.email) {
-      headers.set('x-user-email', user.email);
+    if (user) {
+      try {
+        // Get fresh Firebase ID token (auto-refreshes if expired)
+        const idToken = await user.getIdToken();
+        headers.set('Authorization', `Bearer ${idToken}`);
+      } catch (error) {
+        console.error('Failed to get Firebase ID token:', error);
+        // Fallback to email header for local dev
+        if (user.email) {
+          headers.set('x-user-email', user.email);
+        }
+      }
     }
     
     return fetch(url, {
